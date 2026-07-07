@@ -1,0 +1,19 @@
+# Backs the Part III/IV hands-on labs: a real Squid egress proxy and the
+# network topology a hardened agent container talks through. Not needed for
+# Parts I, II, or V, whose examples are plain Python or IaC dry runs.
+#
+# Chapter 15 replaces infra/squid/squid.conf with a real allowlisting,
+# TLS-inspecting configuration; this file's job is just to prove the
+# container/network plumbing works before content gets built on top of it.
+services:
+  squid:
+    image: ubuntu/squid:6.6-24.04_beta
+    ports:
+      - "3128:3128"
+    volumes:
+      - ./infra/squid/squid.conf:/etc/squid/squid.conf:ro
+    networks:
+      - lab
+
+networks:
+  lab:
