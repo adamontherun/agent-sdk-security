@@ -230,8 +230,8 @@
       <h3>A regulated environment handling PII</h3>
       <p>
         An agent operates on personal data under a compliance regime, likely
-        multi-tenant, where a cross-tenant leak is not just an incident but a reportable
-        breach. Here the top branches of the tree apply together: regulated data plus
+        multi-tenant, where a cross-tenant leak is a reportable breach, not
+        merely an internal incident. Here the top branches of the tree apply together: regulated data plus
         multiple tenants, and often an explicit requirement that workloads not share a
         kernel. That points to a microVM, the hardware boundary from chapter 12, with
         its separate guest kernel, five-device attack surface, and the jailer as a
