@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Read(./.env)",
+      "Read(//**/.ssh/**)",
+      "Read(//**/.aws/credentials)"
+    ],
+    "ask": [
+      "Bash(git push:*)"
+    ],
+    "allow": [
+      "Bash(npm run test:*)",
+      "Bash(npm run build)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:pypi.org)"
+    ],
+    "disableBypassPermissionsMode": "disable",
+    "disableAutoMode": "disable"
+  },
+  "allowManagedPermissionRulesOnly": true,
+  "strictPluginOnlyCustomization": true,
+  "forceRemoteSettingsRefresh": true,
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowManagedDomainsOnly": true,
+      "allowedDomains": ["github.com", "api.github.com", "pypi.org"]
+    },
+    "filesystem": {
+      "allowManagedReadPathsOnly": true
+    }
+  },
+  "hooks": {
+    "ConfigChange": [
+      {
+        "matcher": "local_settings|project_settings",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "logger -t claude-code 'settings changed'"
+          }
+        ]
+      }
+    ]
+  }
+}

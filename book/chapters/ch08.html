@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 8 · Managed Settings &amp; Organization Policy — Agent SDK Security</title>
+<meta name="description" content="Settings precedence, the managed-only keys that lock a fleet down, workspace trust and why project allow-rules require it, and the SDK managedSettings option that lets an embedding host tighten but never loosen policy. Chapter 8 of Agent SDK Security, Part II.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, managed settings, settings precedence, allowManagedPermissionRulesOnly, disableBypassPermissionsMode, workspace trust, parentSettingsBehavior, org policy, ConfigChange hooks">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch08.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 8 · Managed Settings &amp; Organization Policy — Agent SDK Security">
+<meta property="og:description" content="Settings precedence, the managed-only keys that lock a fleet down, workspace trust, and the SDK managedSettings option that tightens but never loosens policy.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch08.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 8 · Managed Settings &amp; Organization Policy — Agent SDK Security">
+<meta name="twitter:description" content="Settings precedence, the managed-only keys that lock a fleet down, workspace trust, and the SDK managedSettings option that tightens but never loosens policy.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 8,
+  "name": "Managed Settings & Organization Policy",
+  "description": "Settings precedence, managed-only keys, and locking a fleet down so individual settings can't loosen it.",
+  "url": "{{PAGES_URL}}chapters/ch08.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch07.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch09.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html" class="current"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 8 · Part II — Permissions &amp; Settings</p>
+      <h1>Managed Settings &amp; Organization Policy</h1>
+      <p class="lede">
+        Everything so far assumed you control the settings file. Across a fleet
+        you don't: developers have their own user settings, projects ship their
+        own <code>.claude</code>, and any of them could try to allow what your
+        policy denies. Managed settings are the layer that can't be argued with.
+        This chapter covers the precedence that decides who wins, the handful of
+        managed-only keys a security operator actually reaches for, why a
+        project's allow rules stay dormant until a human trusts the workspace, and
+        how an embedding host tightens policy through the SDK without ever
+        loosening it.
+      </p>
+
+      <h2>Precedence: managed sits above the command line</h2>
+      <p>
+        Settings resolve in a
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">fixed precedence</a>,
+        highest authority first: managed settings, then command-line arguments,
+        then local project settings, then shared project settings, then user
+        settings. Managed settings can't be overridden by any other level,
+        including CLI flags. The rule that makes this a security boundary rather
+        than a mere ordering is the one carried over from Chapter 4: if a tool is
+        denied at any level, no other level can allow it. A managed deny can't be
+        undone by <code>--allowedTools</code>, and a user-level deny still blocks a
+        project-level allow, because deny is evaluated before allow across every
+        scope.
+      </p>
+      <table>
+        <thead><tr><th>Priority</th><th>Scope</th><th>Who writes it</th></tr></thead>
+        <tbody>
+          <tr><td>1 (highest)</td><td>Managed settings</td><td>The organization, via MDM or server-managed settings</td></tr>
+          <tr><td>2</td><td>Command-line arguments</td><td>The user, per session</td></tr>
+          <tr><td>3</td><td>Local project (<code>.claude/settings.local.json</code>)</td><td>The user, not committed</td></tr>
+          <tr><td>4</td><td>Shared project (<code>.claude/settings.json</code>)</td><td>The team, committed to the repo</td></tr>
+          <tr><td>5 (lowest)</td><td>User (<code>~/.claude/settings.json</code>)</td><td>The user, across all projects</td></tr>
+        </tbody>
+      </table>
+
+      <h2>The managed-only keys worth knowing</h2>
+      <p>
+        A set of keys is
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">read only from managed settings</a>;
+        placing them in a user or project file does nothing. The full table is
+        long, so here are the ones a hardening operator reaches for, and what each
+        one buys.
+      </p>
+      <table>
+        <thead><tr><th>Key</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr><td><code>allowManagedPermissionRulesOnly</code></td><td>User and project settings can no longer define <code>allow</code>, <code>ask</code>, or <code>deny</code> rules. Only managed rules apply. Your allowlist becomes the only allowlist.</td></tr>
+          <tr><td><code>disableBypassPermissionsMode</code></td><td>Forbids <code>bypassPermissions</code> mode entirely. (This one works from any scope, but managed is where you pin it so nobody flips it back.)</td></tr>
+          <tr><td><code>strictPluginOnlyCustomization</code></td><td>Blocks skills, agents, hooks, and MCP servers from user and project sources, so they can only come from plugins or managed settings. Pass <code>true</code> to lock all four, or an array like <code>["skills", "hooks"]</code> to lock some.</td></tr>
+          <tr><td><code>allowManagedHooksOnly</code></td><td>Only managed, SDK, and force-enabled-plugin hooks load. User and project hooks are blocked, so a repo can't ship a hook that runs on your developers' machines.</td></tr>
+          <tr><td><code>forceRemoteSettingsRefresh</code></td><td>Blocks startup until remote managed settings are freshly fetched, and exits if the fetch fails. This is the fail-closed switch: no policy, no session.</td></tr>
+          <tr><td><code>sandbox.network.allowManagedDomainsOnly</code></td><td>Only managed <code>allowedDomains</code> are honored, and non-allowed domains are blocked without prompting. Developers can't widen egress.</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The pairing that does the real work is
+        <code>allowManagedPermissionRulesOnly</code> with a managed deny list.
+        The first makes your managed rules the <em>only</em> allow and ask rules
+        in effect; the second, because deny still merges from every scope and
+        deny beats allow, means nobody can grant a capability you forbade. Note
+        the asymmetry the docs preserve on purpose: even under
+        <code>allowManagedPermissionRulesOnly</code>, deny rules from user and
+        project settings still merge in. A developer can always add a restriction;
+        they just can't remove one.
+      </p>
+
+      <h2>Watch the precedence resolve</h2>
+      <p>
+        The reference model in <code>solutions/ch08.py</code> resolves a stack of
+        scopes into one effective policy.
+        <code>examples/ch08/precedence_demo.py</code> runs the adversarial case: a
+        locked-down managed policy, and a developer's user settings trying to
+        loosen it by allowing <code>curl</code> and <code>rm</code> and switching
+        to bypass mode.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">python3 examples/ch08/precedence_demo.py</figcaption>
+        <pre><code class="language-json">effective policy:
+{
+  "allow": [
+    "Bash(npm run test:*)"
+  ],
+  "ask": [],
+  "deny": [
+    "Bash(curl *)",
+    "Read(./.env)"
+  ],
+  "defaultMode": "default",
+  "bypassAllowed": false
+}</code></pre>
+      </figure>
+
+      <p>
+        Every attempt to loosen policy failed, and one attempt to tighten it
+        succeeded. The user's <code>Bash(curl *)</code> and <code>Bash(rm *)</code>
+        allows vanished, because <code>allowManagedPermissionRulesOnly</code>
+        dropped all non-managed allow rules. The user's
+        <code>bypassPermissions</code> default collapsed to <code>default</code>,
+        because managed <code>disableBypassPermissionsMode</code> forbids it. But
+        the user's own <code>Read(./.env)</code> deny survived into the effective
+        deny list, because a developer is always allowed to restrict further. That
+        asymmetry is the whole design: policy flows down and can only be made
+        stricter on the way.
+      </p>
+
+      <h2>A hardened managed-settings.json</h2>
+      <p>
+        Putting the keys together, <code>examples/ch08/managed-settings.json</code>
+        is a starting point for a locked-down fleet. It denies the network Bash
+        tools per Chapter 6, keeps <code>git push</code> behind an ask rule, pins
+        the permission-rule and sandbox lockdown flags, refuses to start without
+        fresh policy, and logs settings changes through a <code>ConfigChange</code>
+        hook.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch08/managed-settings.json (excerpt)</figcaption>
+        <pre><code class="language-json">{
+  "permissions": {
+    "deny": ["Bash(curl:*)", "Bash(wget:*)", "Read(./.env)", "Read(//**/.ssh/**)"],
+    "ask": ["Bash(git push:*)"],
+    "allow": ["Bash(npm run test:*)", "WebFetch(domain:github.com)"],
+    "disableBypassPermissionsMode": "disable",
+    "disableAutoMode": "disable"
+  },
+  "allowManagedPermissionRulesOnly": true,
+  "strictPluginOnlyCustomization": true,
+  "forceRemoteSettingsRefresh": true,
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "network": {"allowManagedDomainsOnly": true, "allowedDomains": ["github.com"]}
+  }
+}</code></pre>
+      </figure>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Lock the policy, then watch it. The security docs recommend auditing or
+          blocking settings changes during a session with
+          <a href="https://code.claude.com/docs/en/security" target="_blank" rel="noopener"><code>ConfigChange</code> hooks</a>,
+          and monitoring fleet activity through
+          <a href="https://code.claude.com/docs/en/security" target="_blank" rel="noopener">OpenTelemetry metrics</a>.
+          A managed policy tells you what's <em>supposed</em> to be true; the
+          ConfigChange hook and OTEL export tell you whether it still is. Chapter
+          20 builds the observability side of this out.
+        </p>
+      </aside>
+
+      <h2>Project allow rules wait for workspace trust</h2>
+      <p>
+        There is a boundary that protects the individual developer from a
+        malicious repo, and it's easy to miss because it's silent by default. A
+        project's <code>permissions.allow</code> rules and
+        <code>additionalDirectories</code> grant capability, so Claude Code
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">applies them only after you accept the workspace trust dialog</a>
+        for that folder. Until you do, the rules are read but not applied. Clone a
+        hostile repo whose <code>.claude/settings.json</code> allows
+        <code>Bash(*)</code>, and none of it takes effect until a human clicks
+        "Yes, I trust this folder." Deny and ask rules aren't gated this way,
+        since they only restrict.
+      </p>
+      <p>
+        Trust is saved per workspace, keyed on the git repository root. Two edges
+        matter for a deployment. In non-interactive mode with <code>-p</code>, no
+        dialog appears and the untrusted rules simply stay ignored, which is the
+        right default for a headless agent. And starting Claude Code directly in
+        your home directory holds trust for the session only and never writes it
+        to disk, so the prompt returns every launch. Start from a project
+        subdirectory instead.
+      </p>
+
+      <h2>Embedding hosts tighten through the SDK</h2>
+      <p>
+        If you build a product on top of the Agent SDK, you are the policy
+        authority for your users, and the SDK gives you a managed layer of your
+        own. An embedding host supplies additional managed policy through the
+        <code>managedSettings</code> option, and when
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener"><code>parentSettingsBehavior</code> is set to <code>"merge"</code>, embedder values can tighten policy but not loosen it</a>.
+        Your host can add deny rules and forbid bypass mode on top of whatever the
+        underlying settings already enforce, and there is no configuration a user
+        can pass that removes what you added. It's the same one-way ratchet as
+        managed settings, exposed to the host you're writing.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          Every lockdown in this chapter is a one-way ratchet toward stricter, and
+          that's not a coincidence. Deny merges from all scopes and beats allow;
+          the managed-only flags remove other scopes' ability to grant without
+          touching their ability to restrict; workspace trust withholds granted
+          capability until a human consents; the embedder merge tightens but never
+          loosens. The system is built so authority flows downward and can only
+          subtract. Design your policy assuming every scope below you is
+          adversarial, and the mechanics are on your side.
+        </p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — {{WHAT_S_ALREADY_RUNNING}}.
+        </p>
+        <p>
+          Run <code>python3 examples/ch08/precedence_demo.py</code>, then edit the
+          scenario: give the user a <code>deny</code> the managed policy doesn't
+          have, and confirm it survives. Add a managed <code>ask</code> rule and
+          watch where it lands.
+        </p>
+        <p>
+          Then open <code>challenges/ch08/challenge.py</code> and implement
+          <code>resolve()</code>: the precedence order, deny-merges-from-all,
+          <code>allowManagedPermissionRulesOnly</code>, and
+          <code>disableBypassPermissionsMode</code>. Run
+          <code>uv run pytest challenges/ch08/</code>. The tests check both
+          directions of the ratchet, that a loosen attempt fails and a tighten
+          attempt survives. That's the end of Part II; Chapter 9 starts the
+          isolation boundary that makes <code>bypassPermissions</code> safe.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch07.html"><span class="dir">← Previous</span>Hooks as a Security Control</a>
+        <a class="next" href="ch09.html"><span class="dir">Next →</span>The Built-In Sandbox</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 3 · Security Principles: Boundaries, Least Privilege, Defense in Depth — Agent SDK Security</title>
+<meta name="description" content="The three organizing ideas the rest of the course builds on: security boundaries that keep credentials outside the agent, least privilege across filesystem, network, credentials, and capabilities, and defense in depth. Chapter 3 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, AI agent security, prompt injection, sandboxing, least privilege, defense in depth, security boundary, proxy pattern">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch03.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 3 · Security Principles: Boundaries, Least Privilege, Defense in Depth — Agent SDK Security">
+<meta property="og:description" content="The three organizing ideas the rest of the course builds on: security boundaries that keep credentials outside the agent, least privilege across filesystem, network, credentials, and capabilities, and defense in depth. Chapter 3 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch03.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 3 · Security Principles — Agent SDK Security">
+<meta name="twitter:description" content="The three organizing ideas the rest of the course builds on: security boundaries that keep credentials outside the agent, least privilege across filesystem, network, credentials, and capabilities, and defense in depth. Chapter 3 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 3,
+  "name": "Security Principles: Boundaries, Least Privilege, Defense in Depth",
+  "description": "The three organizing ideas the rest of the course builds on: security boundaries that keep credentials outside the agent, least privilege across filesystem, network, credentials, and capabilities, and defense in depth.",
+  "url": "{{PAGES_URL}}chapters/ch03.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch02.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch04.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html" class="current"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 3 · Part I — Threat Model &amp; Foundations</p>
+      <h1>Security Principles: Boundaries, Least Privilege, Defense in Depth</h1>
+      <p class="lede">
+        Everything from here on is a variation on three ideas. Put your secrets
+        on the far side of a boundary the agent can't cross. Give the agent only
+        the access its task actually needs. And assume any single control will
+        fail, so stack several that fail independently. The secure-deployment
+        guide names these as security boundaries, least privilege, and defense
+        in depth. This chapter defines each one concretely, then maps the four
+        remaining parts of the course onto them, so you can see where every
+        later technique fits before you meet it.
+      </p>
+
+      <h2>Security boundaries</h2>
+      <p>
+        A boundary is a line between things you trust to different degrees. The
+        <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">secure-deployment guide</a>
+        defines it this way: "A security boundary separates components with
+        different trust levels. For high-security deployments, you can place
+        sensitive resources (like credentials) outside the boundary containing
+        the agent. If something goes wrong in the agent's environment, resources
+        outside that boundary remain protected."
+      </p>
+      <p>
+        The move that makes this real for agents is the proxy pattern, which
+        Part IV builds by hand. Rather than handing the agent an API key, you
+        run a proxy outside its environment that injects the key into outgoing
+        requests. In the guide's words, "the agent can make API calls, but it
+        never sees the credential itself." Line that up against the lethal
+        trifecta from chapter 1. Prompt injection can trick an agent into
+        sending data anywhere it's able to reach, but it cannot make the agent
+        leak a secret the agent was never given. The credential sits outside the
+        boundary, so a compromise inside the boundary can't reach it. That single
+        sentence, a credential the agent never holds is a credential it can never
+        leak, is the reason the network boundary gets its own part of this book.
+      </p>
+
+      <h2>Least privilege</h2>
+      <p>
+        Least privilege is the discipline of granting only what the task
+        requires and nothing spare. The secure-deployment guide frames it as
+        restricting "the agent to only the capabilities required for its
+        specific task," and gives a compact table of where those restrictions
+        apply and what each one looks like.
+      </p>
+
+      <table>
+        <caption>Least-privilege restrictions, from the secure-deployment guide</caption>
+        <thead>
+          <tr><th>Resource</th><th>Restriction options</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Filesystem</td><td>Mount only needed directories, prefer read-only</td></tr>
+          <tr><td>Network</td><td>Restrict to specific endpoints via proxy</td></tr>
+          <tr><td>Credentials</td><td>Inject via proxy rather than exposing directly</td></tr>
+          <tr><td>System capabilities</td><td>Drop Linux capabilities in containers</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Four rows, four questions to ask of any deployment. Which directories
+        does the agent truly need, and can they be read-only? Which network
+        endpoints, and can everything else be blocked? Do credentials have to be
+        present in the agent's environment, or can a proxy hold them? Have the
+        Linux capabilities that enable privilege escalation been dropped? The
+        challenge for this chapter turns exactly these four rows into a checker
+        that flags an under-restricted config, and the example runs it against a
+        wide-open default and a hardened one.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch03/lp_review.py — captured output</figcaption>
+        <pre><code class="language-text"> wide-open default: 4 violation(s) -> credentials, filesystem, network, system_capabilities
+          hardened: 0 violation(s) -> none
+</code></pre>
+      </figure>
+      <p>
+        The four violations in the first row map one-to-one onto the four table
+        rows, and each is addressed by a specific technique later in the course.
+        A writable root filesystem becomes a read-only mount in chapter 16.
+        Unrestricted network becomes an allowlisting egress proxy in chapter 15.
+        Credentials in the environment move behind the proxy in chapter 14.
+        Undropped capabilities get dropped in the hardened container of chapter
+        10. The principle is abstract; the fixes are concrete, and you build
+        each one.
+      </p>
+
+      <h2>Defense in depth</h2>
+      <p>
+        No single control on that list is trustworthy enough to be the only one.
+        Defense in depth is the habit of layering controls that fail
+        independently, so that one being bypassed doesn't open the whole system.
+        The secure-deployment guide's threat-model example is the clearest
+        statement of why: "if an agent processes a malicious file that instructs
+        it to send customer data to an external server, network controls can
+        block that request entirely." The model's own resistance to injection
+        might catch that file. If it doesn't, a network control that never saw
+        the instruction still stops the exfiltration. The two layers don't share
+        a failure mode, which is the whole point.
+      </p>
+      <p>
+        For deployments that need more than the defaults, the guide lists the
+        controls to layer: container isolation, network restrictions, filesystem
+        controls, and request validation at a proxy. Notice these are the
+        subjects of Parts III and IV. Defense in depth isn't a separate
+        technique you bolt on at the end; it's the reason the course covers
+        isolation and the network boundary as distinct layers rather than
+        picking one and calling it done. As the guide puts it, "the right
+        combination depends on your threat model and operational requirements,"
+        which is why chapter 13 is a decision framework rather than a single
+        recommendation.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          These three principles aren't specific to agents. The secure-deployment
+          guide is explicit that "the same principles that apply to running any
+          semi-trusted code apply here: isolation, least privilege, and defense
+          in depth." What's new is the threat model from chapter 1, not the
+          toolbox. Containers, proxies, dropped capabilities, and read-only
+          mounts are decades-old operational security. The shift is that you now
+          point them at a process whose next action is generated from untrusted
+          input, so you apply them by default rather than only to code you've
+          already decided is hostile.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">Securely deploying AI agents</a></p>
+      </aside>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          Not every deployment needs every layer, and treating maximum security
+          as the only correct answer is its own mistake. The guide draws the
+          line clearly: "A developer running Claude Code on their laptop has
+          different requirements than a company processing customer data in a
+          multi-tenant environment." Least privilege cuts both ways. Over-
+          restricting a low-risk local workflow buys friction, not safety. The
+          work is matching the controls to the threat model, which means you
+          have to actually name the threat model first, the way chapter 1 named
+          the trifecta legs.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">Securely deploying AI agents</a></p>
+      </aside>
+
+      <h2>How the rest of the course builds on this</h2>
+      <p>
+        With the three principles in hand, the shape of the remaining four parts
+        is easy to see, because each part hardens one layer of the same picture.
+      </p>
+      <p>
+        Part II hardens the permission layer: the evaluation pipeline a tool
+        call moves through, the permission modes, the tool-specific rules, hooks
+        as a programmable control, and managed settings that let an organization
+        lock a fleet down. This is least privilege applied to what the agent is
+        allowed to attempt in the first place. Part III hardens the isolation
+        boundary: the built-in sandbox, hardened containers, gVisor, and
+        microVMs with Firecracker, ending in a framework for choosing among
+        them. This is defense in depth applied at the process boundary, so that
+        a control the model bypasses runs into a wall the operating system
+        enforces. Part IV hardens credentials and the network: the proxy pattern,
+        a real Squid egress proxy you build, and filesystem configuration. This
+        is the security-boundary principle made concrete, putting secrets and
+        egress on the far side of a line the agent can't cross. Part V puts it
+        into production: hosting the Agent SDK, deploying on Amazon ECS and on
+        AWS Lambda MicroVMs, and the observability to know when something went
+        wrong. Every one of those chapters is one of these three principles,
+        turned into infrastructure you run.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the code here runs with no Claude session and no network access.
+        </p>
+        <p>
+          Run <code>python examples/ch03/lp_review.py</code> to review a
+          wide-open config and a hardened one against the four least-privilege
+          rows. Flip one field in <code>HARDENED</code> and watch a violation
+          reappear.
+        </p>
+        <p>
+          Then implement <code>review_least_privilege</code> in
+          <code>challenges/ch03/challenge.py</code> so it returns the sorted
+          list of under-restricted resources, with a missing capabilities key
+          treated as the worst case. Run
+          <code>uv run pytest challenges/ch03/</code>; the skeleton fails until
+          all four checks are in place. Reference solution:
+          <code>solutions/ch03.py</code>. That's the end of Part I. Chapter 4
+          opens Part II by tracing a single tool call through the permission
+          evaluation pipeline.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch02.html"><span class="dir">← Previous</span>Built-In Defenses, A Tour</a>
+        <a class="next" href="ch04.html"><span class="dir">Next →</span>The Permission Evaluation Pipeline</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

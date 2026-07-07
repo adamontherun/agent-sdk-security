@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 13 · Choosing an Isolation Strategy — Agent SDK Security</title>
+<meta name="description" content="A decision framework for picking the built-in sandbox, a hardened container, gVisor, or a microVM against your actual threat model, worked through four concrete deployment scenarios. Chapter 13 of Agent SDK Security, Part III · Isolation Technologies.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, isolation strategy, decision framework, sandbox, container hardening, gVisor, Firecracker, microVM, multi-tenant, threat model">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch13.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 13 · Choosing an Isolation Strategy — Agent SDK Security">
+<meta property="og:description" content="A decision framework for sandbox vs. container vs. gVisor vs. microVM, worked through four concrete deployment scenarios.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch13.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 13 · Choosing an Isolation Strategy — Agent SDK Security">
+<meta name="twitter:description" content="A decision framework for sandbox vs. container vs. gVisor vs. microVM, worked through four concrete deployment scenarios.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 13,
+  "name": "Choosing an Isolation Strategy",
+  "description": "A decision framework for picking sandbox, container, gVisor, or microVM against your actual threat model.",
+  "url": "{{PAGES_URL}}chapters/ch13.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch12.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch14.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html" class="current"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 13 · Part III — Isolation Technologies</p>
+      <h1>Choosing an Isolation Strategy</h1>
+      <p class="lede">
+        Four chapters, four boundaries, each stronger and more expensive than the last.
+        The mistake this chapter exists to prevent is picking by strength alone and
+        paying for isolation your threat model does not need, or worse, picking by cost
+        alone and shipping a boundary that does not hold against the content you
+        actually process. The right choice falls out of two questions: whose code runs
+        inside the boundary, and what happens if it turns hostile. This chapter turns
+        those questions into a decision you can defend.
+      </p>
+
+      <h2>The tradeoff, in one table</h2>
+      <p>
+        The secure-deployment guide summarizes the four options along the three axes
+        that matter for the choice. Read it as the shape of the tradeoff, not the
+        answer; the answer depends on the scenario, which the rest of the chapter works
+        through.
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>Technology</th><th>Isolation strength</th><th>Performance overhead</th><th>Complexity</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Sandbox runtime</td><td>Good (secure defaults)</td><td>Very low</td><td>Low</td></tr>
+          <tr><td>Containers (Docker)</td><td>Setup dependent</td><td>Low</td><td>Medium</td></tr>
+          <tr><td>gVisor</td><td>Excellent (with correct setup)</td><td>Medium/High</td><td>Medium</td></tr>
+          <tr><td>VMs (Firecracker, QEMU)</td><td>Excellent (with correct setup)</td><td>High</td><td>Medium/High</td></tr>
+        </tbody>
+      </table>
+      <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment#isolation-technologies" target="_blank" rel="noopener">Secure deployment · isolation technologies</a></p>
+
+      <p>
+        Two entries in that table carry a parenthetical that does the real work.
+        Containers are "setup dependent," which chapter 10 made concrete: an unhardened
+        <code>docker run</code> shares almost everything with the host, and it was the
+        specific flags, the dropped capabilities, the read-only root, the removed
+        network, that turned it into a boundary. gVisor and VMs are excellent "with
+        correct setup," which chapters 11 and 12 showed means a Linux host, a registered
+        runtime or a KVM device, and the config to match. Strength on paper is not
+        strength deployed.
+      </p>
+
+      <h2>The decision, as a tree</h2>
+      <p>
+        Work top to bottom and stop at the first branch that fits. Each question is
+        about your threat model, not your preferences, and the order encodes which
+        risks justify which cost.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">isolation decision tree</figcaption>
+        <pre><code class="language-text">1. Is a shared host kernel unacceptable on its own?
+   (hard compliance line, or code you must assume is actively hostile)
+      -> yes: microVM (Firecracker, or a managed service built on it)
+
+2. Multiple tenants AND regulated data (PII, compliance obligations)?
+      -> yes: microVM  — one tenant's escape must not reach another's data
+
+3. Multiple tenants OR you process untrusted / attacker-influenced content?
+      -> yes: gVisor   — a second kernel between that code and yours
+
+4. Automated/unattended runs, or you need an egress boundary and resource caps?
+   (CI jobs, a server running agent tasks on your own repos)
+      -> yes: hardened container
+
+5. None of the above — a single developer on their own machine?
+      -> the built-in sandbox
+</code></pre>
+      </figure>
+
+      <p>
+        The ordering is deliberate. Kernel isolation as a hard requirement sits at the
+        top because when it is genuinely required, nothing cheaper qualifies, no matter
+        how convenient. Multi-tenancy plus regulated data comes next because the blast
+        radius of a failure is another customer's protected information. Untrusted
+        content without the regulatory weight drops to gVisor, which buys the separate
+        kernel that chapter 11 described without the operational load of running VMs.
+        Everything that is your own code, run for your own benefit, lives in the bottom
+        two rungs, where the question is only how automated the run is.
+      </p>
+
+      <h2>Four scenarios, worked</h2>
+
+      <h3>A single developer on a laptop</h3>
+      <p>
+        One person runs Claude Code against their own repositories. The code is theirs,
+        the machine is theirs, and the realistic risk is a prompt-injected command in a
+        README doing something the developer did not intend, not a determined attacker
+        with a kernel exploit. This is the built-in sandbox's home ground. One settings
+        block, the OS-level filesystem and network confinement from chapter 9, and the
+        credential deny list to close the read-by-default gap. Reaching for a container
+        here adds friction for a threat the sandbox already covers. The one thing not to
+        skip is the <code>sandbox.credentials</code> block, because the default that
+        still exposes <code>~/.aws/credentials</code> is the realistic failure here, not
+        a kernel escape.
+      </p>
+
+      <h3>A CI pipeline running agent tasks</h3>
+      <p>
+        Agent jobs run unattended on shared CI infrastructure, checking out branches and
+        running builds. The code is still trusted, mostly, but nobody is watching each
+        run, jobs share a host with other jobs, and a runaway task should not take the
+        runner down. This is the hardened container's case. The resource caps from
+        chapter 10, <code>--memory</code>, <code>--cpus</code>, and the
+        <code>--pids-limit</code> that refused a fork bomb, keep one job from starving
+        another. <code>--read-only</code> with a tmpfs keeps a job from persisting
+        changes into the runner, and <code>--network none</code> with a proxy socket
+        keeps an unattended job from reaching hosts it has no business reaching. The
+        container is not overkill here; the lack of a human in the loop is exactly what
+        the resource and network limits stand in for.
+      </p>
+
+      <h3>Multi-tenant SaaS processing customer-uploaded content</h3>
+      <p>
+        Your product runs an agent over content your customers upload, and one
+        customer's document might contain instructions aimed at attacking another
+        customer or your platform. Now the code path is deliberately exposed to hostile
+        input, and tenants share infrastructure. A shared kernel is the risk that
+        matters, because a container escape through a kernel bug crosses tenant
+        boundaries. gVisor is the fit: its userspace kernel means the untrusted code
+        would have to defeat the Sentry's Go implementation before it got near the host
+        kernel. The file-I/O overhead from chapter 11 is the price, and for processing
+        untrusted content the secure-deployment guide's own judgment is that it is
+        usually worth it. Measure your workload against that 10-to-200x file-I/O range
+        before committing, but the isolation is the right shape.
+      </p>
+
+      <h3>A regulated environment handling PII</h3>
+      <p>
+        An agent operates on personal data under a compliance regime, likely
+        multi-tenant, where a cross-tenant leak is not just an incident but a reportable
+        breach. Here the top branches of the tree apply together: regulated data plus
+        multiple tenants, and often an explicit requirement that workloads not share a
+        kernel. That points to a microVM, the hardware boundary from chapter 12, with
+        its separate guest kernel, five-device attack surface, and the jailer as a
+        second line of defense. Most teams will consume this through a managed service
+        rather than run Firecracker themselves, which is what chapter 19 builds on AWS
+        Lambda MicroVMs. The point of this scenario is that the strongest boundary is
+        chosen because the consequences of failure, not the technology's appeal,
+        demand it.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          These layers combine, and the best deployments stack them. A multi-tenant
+          service might run each session in a microVM, harden the container inside it
+          anyway, and still route all egress through the proxy Part IV builds. Defense
+          in depth means a single failure, a kernel bug, a misconfigured capability, a
+          too-broad allowlist, does not by itself hand over the system. The decision
+          tree picks your primary boundary. It does not stop you adding the cheaper
+          controls underneath it, and you generally should.
+        </p>
+      </aside>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          Notice what none of these boundaries do on their own: control what the agent
+          reaches once it is allowed to make a network request. Every scenario above
+          ended with traffic going through a proxy, because the isolation boundary and
+          the network boundary are different controls answering different questions.
+          Isolation decides what the code can touch on the machine. The proxy decides
+          where its requests can go and injects the credentials it should never hold.
+          Part IV is that second boundary, and it applies no matter which rung of this
+          chapter's ladder you landed on.
+        </p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the Python toolchain is ready.
+        </p>
+        <p>
+          The challenge in <code>challenges/ch13/</code> is the decision tree as code.
+          You implement <code>recommend(scenario)</code>, which maps a described
+          deployment to one of <code>"sandbox"</code>, <code>"container"</code>,
+          <code>"gvisor"</code>, or <code>"microvm"</code>. The tests are the four
+          scenarios above plus the edge cases the tree's ordering exists to handle, like
+          a single-tenant laptop that still declares a hard kernel-isolation
+          requirement and escalates all the way to a microVM. Verify with
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch13</code>.
+        </p>
+        <p>
+          That closes Part III. Next, Part IV builds the network boundary every scenario
+          here leaned on: a real Squid egress proxy the agent cannot see past.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch12.html"><span class="dir">← Previous</span>MicroVMs and Firecracker</a>
+        <a class="next" href="ch14.html"><span class="dir">Next →</span>The Proxy Pattern</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

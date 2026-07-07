@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 11 · gVisor — Agent SDK Security</title>
+<meta name="description" content="gVisor's Sentry and Gofer, the systrap syscall-interception model, setting up the runsc Docker runtime, and the performance tradeoff: near-zero CPU overhead but up to 10-200x on heavy file I/O. Chapter 11 of Agent SDK Security, Part III · Isolation Technologies.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, gVisor, runsc, Sentry, Gofer, systrap, userspace kernel, syscall interception, container hardening, multi-tenant isolation">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch11.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 11 · gVisor — Agent SDK Security">
+<meta property="og:description" content="A userspace kernel between the agent and yours: gVisor's architecture, the runsc runtime, and what the isolation costs.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch11.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 11 · gVisor — Agent SDK Security">
+<meta name="twitter:description" content="A userspace kernel between the agent and yours: gVisor's architecture, the runsc runtime, and what the isolation costs.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 11,
+  "name": "gVisor",
+  "description": "A userspace kernel between the agent and yours — what it buys you and what it costs.",
+  "url": "{{PAGES_URL}}chapters/ch11.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch10.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch12.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html" class="current"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 11 · Part III — Isolation Technologies</p>
+      <h1>gVisor</h1>
+      <p class="lede">
+        The hardened container in the last chapter left one boundary standing: it
+        shares the host kernel. When code inside makes a system call, that call goes
+        straight to the same kernel running everything else on the box, so a kernel
+        vulnerability is a path out. gVisor closes that path by putting a second
+        kernel, written in Go and running in userspace, between the container and the
+        real one. This chapter explains how it does that and what it costs, and it is
+        honest about one thing up front: gVisor needs a Linux host, so unlike chapter
+        10 the commands here were not run on this Mac. The setup is verified against
+        the official docs, and there is a CI workflow you can actually run.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Can't run this on a Mac</span>
+        <p>
+          gVisor's <code>runsc</code> runtime requires a Linux host with the kernel
+          features it hooks into. It does not run inside Docker Desktop for Mac's VM
+          without custom modifications this course does not attempt. So the terminal
+          blocks below are the real, exact commands from the gVisor documentation, not
+          output captured on this machine. The runnable form for this chapter is the
+          GitHub Actions workflow at the end, which installs and exercises
+          <code>runsc</code> on an <code>ubuntu-latest</code> runner.
+        </p>
+      </aside>
+
+      <h2>Two processes: the Sentry and the Gofer</h2>
+      <p>
+        gVisor is described in its
+        <a href="https://gvisor.dev/docs/" target="_blank" rel="noopener">documentation</a>
+        as an application kernel that implements a Linux-like interface. The part
+        doing the work is the Sentry. The docs call it the largest component and say
+        it can be thought of as an application kernel: it handles system calls, signal
+        delivery, memory management, page faulting, and threading. The important
+        detail is what it does not do. The Sentry does not pass syscalls through to
+        the host kernel; it services them itself. When the application asks for
+        something, the Sentry answers, using a small and tightly restricted set of
+        host calls of its own rather than forwarding the application's request.
+      </p>
+      <p>
+        Filesystem access is split off into a second process, the Gofer. The docs
+        describe it as a standard host process started with each container that
+        communicates with the Sentry over the 9P protocol on a socket or shared memory
+        channel. The Sentry itself runs in a restricted seccomp container with no
+        direct filesystem access, so a compromise of the Sentry does not hand an
+        attacker the host's files; it would still have to go through the Gofer's
+        mediated interface. Two processes with narrow, separate jobs is the shape of
+        the design.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          Why write a kernel in Go? Memory safety. The docs point out that unlike
+          Linux, gVisor is written in a memory-safe language and runs in userspace.
+          A large class of kernel exploits depends on memory-corruption bugs in C. A
+          Go implementation of the syscall surface does not remove every risk, but it
+          takes the most common category of kernel vulnerability off the table for the
+          layer the untrusted code talks to first.
+        </p>
+      </aside>
+
+      <h2>How the syscalls get intercepted</h2>
+      <p>
+        For the Sentry to service a syscall, the syscall has to be redirected to it
+        before it reaches the host. gVisor calls the mechanism that does this the
+        Platform, and there have been three. The current default is
+        <a href="https://gvisor.dev/docs/architecture_guide/platforms/" target="_blank" rel="noopener">systrap</a>,
+        which relies on seccomp's <code>SECCOMP_RET_TRAP</code> feature: when the
+        application makes a system call, the kernel sends a <code>SIGSYS</code> signal
+        to the thread, which transfers control to gVisor to handle the call. The docs
+        note systrap replaced ptrace as the default in mid-2023.
+      </p>
+      <p>
+        The KVM platform is the other supported option. It uses the kernel's KVM
+        virtualization functionality to let the Sentry act as both guest kernel and
+        virtual machine monitor, which can give better performance for address-space
+        switching. The old ptrace platform, which used <code>PTRACE_SYSEMU</code> to
+        run user code without letting it make host syscalls, is deprecated and no
+        longer supported. For deploying an agent, the takeaway is that systrap is what
+        you get by default and it does not require nested virtualization, while KVM is
+        available where the host supports it and the workload benefits.
+      </p>
+
+      <h2>Setting up the runsc runtime</h2>
+      <p>
+        gVisor plugs into Docker as an OCI runtime named <code>runsc</code>. Install
+        it on a Linux host by downloading the <code>runsc</code> and
+        <code>containerd-shim-runsc-v1</code> binaries, verifying their checksums, and
+        moving them somewhere on the path. These commands are from the
+        <a href="https://gvisor.dev/docs/user_guide/install/" target="_blank" rel="noopener">gVisor
+        install guide</a>.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">install runsc on a Linux host (from the gVisor docs)</figcaption>
+        <pre><code class="language-bash">(
+  set -e
+  ARCH=$(uname -m)
+  URL=https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}
+  wget ${URL}/runsc ${URL}/runsc.sha512 \
+    ${URL}/containerd-shim-runsc-v1 ${URL}/containerd-shim-runsc-v1.sha512
+  sha512sum -c runsc.sha512 -c containerd-shim-runsc-v1.sha512
+  rm -f *.sha512
+  chmod a+rx runsc containerd-shim-runsc-v1
+  sudo mv runsc containerd-shim-runsc-v1 /usr/local/bin
+)
+</code></pre>
+      </figure>
+
+      <p>
+        Registering the runtime with Docker is a one-liner: <code>runsc install</code>
+        writes the runtime entry into <code>/etc/docker/daemon.json</code> for you.
+        That entry looks like the block below, which is what you would write by hand if
+        you preferred. Reload the daemon and the runtime is available.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">/etc/docker/daemon.json</figcaption>
+        <pre><code class="language-json">{
+  "runtimes": {
+    "runsc": {
+      "path": "/usr/local/bin/runsc"
+    }
+  }
+}
+</code></pre>
+      </figure>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">register and select the runtime (from the gVisor docs)</figcaption>
+        <pre><code class="language-bash">sudo /usr/local/bin/runsc install
+sudo systemctl reload docker
+docker run --rm --runtime=runsc hello-world
+</code></pre>
+      </figure>
+
+      <p>
+        After that, the only change to how you launch the agent is
+        <code>--runtime=runsc</code>. Every hardening flag from chapter 10 still
+        applies; gVisor sits underneath them, changing which kernel the container's
+        syscalls hit. The two layers stack.
+      </p>
+
+      <h2>What it costs</h2>
+      <p>
+        Servicing syscalls in userspace is not free, and the cost depends entirely on
+        what the workload does. The secure-deployment guide gives a compact table, and
+        it matches the qualitative picture in gVisor's own
+        <a href="https://gvisor.dev/docs/architecture_guide/performance/" target="_blank" rel="noopener">performance
+        guide</a>: CPU-bound work is essentially unaffected because gVisor does not
+        interfere with raw instruction execution, while syscall-heavy and
+        filesystem-heavy work pays a real tax.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">overhead by workload (secure-deployment docs)</figcaption>
+        <pre><code class="language-text">Workload                 Overhead
+-----------------------  --------------------------------------------
+CPU-bound computation    ~0% (no syscall interception)
+Simple syscalls          ~2x slower
+File I/O intensive       Up to 10-200x slower for heavy open/close patterns
+</code></pre>
+      </figure>
+
+      <p>
+        The gVisor performance guide fills in why the file-I/O number is a range and
+        not a point. Raw data transfer across the sandbox boundary carries a small
+        fixed overhead, but VFS-heavy patterns, lots of <code>open</code> and
+        <code>close</code> on many small files, hit internal serialization points and
+        degrade sharply. An agent that spends its time thinking, generating text, and
+        making occasional API calls sits near the cheap end. An agent that unpacks a
+        huge dependency tree or walks a giant repository on every run sits near the
+        expensive end. Measure your actual workload before deciding the overhead is or
+        is not acceptable.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          gVisor earns its overhead when you are running code you do not trust next to
+          code, or tenants, you must protect. The secure-deployment guide puts it
+          plainly: for multi-tenant environments or processing untrusted content, the
+          additional isolation is often worth the cost. If a single team runs an agent
+          against its own repositories on its own infrastructure, a hardened container
+          is usually enough and gVisor's file-I/O tax buys little. The decision
+          framework in chapter 13 makes this call explicit against a handful of
+          concrete scenarios.
+        </p>
+      </aside>
+
+      <h2>The verifiable form: a CI workflow</h2>
+      <p>
+        Because this Mac cannot run <code>runsc</code>, the honest "hands-on" for this
+        chapter is a GitHub Actions workflow. An <code>ubuntu-latest</code> runner is a
+        real Linux host, so it can install the runtime and prove a container ran on
+        gVisor's kernel rather than the host's. The file is in the repo; the install
+        steps are the same ones quoted above.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch11/gvisor-ci.yml (excerpt)</figcaption>
+        <pre><code class="language-yaml">      - name: Prove the container runs on gVisor's kernel, not the host's
+        run: |
+          # Under runsc, uname reports gVisor's own kernel identity string,
+          # which is how you confirm the syscalls never reached the host kernel.
+          docker run --rm --runtime=runsc alpine uname -a
+</code></pre>
+      </figure>
+
+      <p>
+        Running <code>uname -a</code> under <code>runsc</code> reports gVisor's own
+        kernel identity, not the host's, which is the confirmation that the container's
+        syscalls were serviced by the Sentry. That is the boundary this chapter is
+        about, made visible in one command.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No Linux host? The workflow at <code>examples/ch11/gvisor-ci.yml</code> is
+          the runnable version. Copy it into <code>.github/workflows/</code> in any
+          repo and trigger it; the runner does the Linux part for you.
+        </p>
+        <p>
+          Locally you can still do the config half. Open
+          <code>challenges/ch11/</code> and implement
+          <code>validate_runsc_setup(daemon_json, run_args)</code>, which catches the
+          two ways a gVisor setup silently does nothing: the runtime is not registered
+          in <code>daemon.json</code>, or the container never selects it with
+          <code>--runtime=runsc</code>. Verify with
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch11</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch10.html"><span class="dir">← Previous</span>Hardened Containers</a>
+        <a class="next" href="ch12.html"><span class="dir">Next →</span>MicroVMs and Firecracker</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

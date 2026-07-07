@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 1 · Why Agent Security Is Different — Agent SDK Security</title>
+<meta name="description" content="An agent's actions are generated at runtime from whatever it reads, so reviewing its code can't tell you what it will do. Prompt injection and the lethal trifecta, and why they change the security problem. Chapter 1 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, AI agent security, prompt injection, sandboxing, lethal trifecta, OWASP LLM01, data exfiltration">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch01.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 1 · Why Agent Security Is Different — Agent SDK Security">
+<meta property="og:description" content="An agent's actions are generated at runtime from whatever it reads, so reviewing its code can't tell you what it will do. Prompt injection and the lethal trifecta, and why they change the security problem. Chapter 1 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch01.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 1 · Why Agent Security Is Different — Agent SDK Security">
+<meta name="twitter:description" content="An agent's actions are generated at runtime from whatever it reads, so reviewing its code can't tell you what it will do. Prompt injection and the lethal trifecta, and why they change the security problem. Chapter 1 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 1,
+  "name": "Why Agent Security Is Different",
+  "description": "An agent's actions are generated at runtime from whatever it reads, so reviewing its code can't tell you what it will do. Prompt injection and the lethal trifecta, and why they change the security problem.",
+  "url": "{{PAGES_URL}}chapters/ch01.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "nextItem": "{{PAGES_URL}}chapters/ch02.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html" class="current"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 1 · Part I — Threat Model &amp; Foundations</p>
+      <h1>Why Agent Security Is Different</h1>
+      <p class="lede">
+        You can read every line of an agent's source and still not know what it
+        will do, because its actions aren't in the source. They're generated at
+        runtime from whatever the model reads: your prompt, the files it opens,
+        the web pages it fetches, the output of the last command it ran. That
+        one fact reshapes the whole security problem. This chapter is about what
+        changes when the thing you're securing writes its own next move, and it
+        names the two ideas the rest of the course keeps coming back to: prompt
+        injection and the lethal trifecta.
+      </p>
+
+      <h2>Code you can read, behavior you can't predict</h2>
+      <p>
+        A normal program has a fixed set of paths through it. Given the same
+        inputs it does the same thing, and if you want to know whether it can
+        delete a file or open a socket, you can read the code and find out. An
+        agent breaks that assumption. As the Claude Agent SDK
+        <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">secure-deployment guide</a>
+        puts it, "Unlike traditional software that follows predetermined code
+        paths, these tools generate their actions dynamically based on context
+        and goals." The flexibility is the point. It's also the problem.
+      </p>
+      <p>
+        The tools an agent can reach are still fixed, and this course spends
+        most of its length on constraining exactly those. What isn't fixed is
+        the sequence of calls the model chooses to make, and the arguments it
+        passes. A code reviewer agent that only ever needs to read files can, in
+        principle, be steered into running a shell command, because deciding to
+        run that command is a runtime choice made from context, not a branch you
+        can grep for. Reviewing the agent's code tells you the ceiling on what's
+        possible. It doesn't tell you what will happen on any given run.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          Claude models are trained to resist manipulation, and that resistance
+          is real and load-bearing. The secure-deployment guide is explicit that
+          it isn't a complete defense on its own: "Agents can take unintended
+          actions due to prompt injection (instructions embedded in content they
+          process) or model error," and "Defense in depth is still good practice
+          though." The model's judgment is one layer. The permission rules,
+          sandboxes, and proxies in the rest of this course are the layers that
+          hold when it slips.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">Securely deploying AI agents — Threat model</a></p>
+      </aside>
+
+      <h2>Prompt injection</h2>
+      <p>
+        The name for the core failure mode is prompt injection. The Claude Code
+        <a href="https://code.claude.com/docs/en/security" target="_blank" rel="noopener">security documentation</a>
+        defines it as "a technique where an attacker attempts to override or
+        manipulate an AI assistant's instructions by inserting malicious text."
+        The model reads instructions and content in the same stream of tokens
+        and has no reliable way to tell which side an instruction came from.
+        Simon Willison, who
+        <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/" target="_blank" rel="noopener">coined the term</a>,
+        describes the root cause plainly: LLMs "are unable to reliably
+        distinguish the importance of instructions based on where they came
+        from." He draws the analogy to SQL injection, where trusted query
+        structure and untrusted user data get concatenated into one string and
+        the database can't tell them apart.
+      </p>
+      <p>
+        This is not a fringe concern. Prompt injection sits at the top of the
+        <a href="https://owasp.org/www-project-top-10-for-large-language-model-applications/" target="_blank" rel="noopener">OWASP Top 10 for LLM Applications</a>
+        as LLM01, described there as manipulating an LLM via crafted inputs to
+        cause unauthorized access, data breaches, and compromised
+        decision-making. It is a recognized, catalogued class of vulnerability,
+        not a hypothetical.
+      </p>
+      <p>
+        The concrete version the secure-deployment guide gives is worth holding
+        onto because it's so ordinary: "if a repository's README contains
+        unusual instructions, Claude Code might incorporate those into its
+        actions in ways the operator didn't anticipate." No exploit, no memory
+        corruption. Just text in a file the agent was asked to read, phrased as
+        an instruction, treated as one.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          The untrusted content doesn't have to be visible to a human skimming
+          the file. It can sit in a code comment, a commit message, an HTML
+          element styled to be invisible, the alt text of an image, or a page
+          the agent fetches three links deep from the one you pointed it at. If
+          your mental model is "I trust this repo, so I trust what the agent
+          reads in it," remember that a dependency's README, a pasted stack
+          trace, or an issue comment from a stranger all land in the same
+          context window as your own instructions.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">Securely deploying AI agents</a></p>
+      </aside>
+
+      <h2>The lethal trifecta</h2>
+      <p>
+        Prompt injection explains how an attacker gets a foothold. It doesn't,
+        by itself, explain when that foothold turns into real damage. Simon
+        Willison's framing for that is the
+        <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/" target="_blank" rel="noopener">lethal trifecta</a>:
+        three capabilities that are each fine alone but dangerous together.
+      </p>
+      <p>
+        The first is access to private data, which is one of the most common
+        reasons to give an agent tools in the first place. The second is
+        exposure to untrusted content, meaning any path by which text an
+        attacker controls reaches the model. The third is the ability to
+        communicate externally, which Willison calls exfiltration: some way for
+        the agent to send data back out. His conclusion is the sentence to
+        memorize: "If your agent combines these three features, an attacker can
+        easily trick it into accessing your private data and sending it to that
+        attacker."
+      </p>
+      <p>
+        The secure-deployment guide gives the canonical example: "if an agent
+        processes a malicious file that instructs it to send customer data to an
+        external server, network controls can block that request entirely." Read
+        that against the three legs. Customer data is the private data. The
+        malicious file is the untrusted content. The request to an external
+        server is the exfiltration path. All three are present, so the attack
+        works. The guide's own fix is to remove one leg: block the outbound
+        request, and the private data has nowhere to go.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch01/trifecta_scan.py — captured output</figcaption>
+        <pre><code class="language-text">[LETHAL TRIFECTA] Support agent: reads customer records, ingests inbound email, can call webhooks
+                  legs present: private_data, untrusted_content, external_comms
+[             ok] Code reviewer: reads a private repo, no outbound network, posts nothing
+                  legs present: private_data
+[             ok] Docs summarizer: fetches public web pages, can email a summary out
+                  legs present: untrusted_content, external_comms
+[             ok] Scratch sandbox: no secrets, ingests untrusted files, no egress
+                  legs present: untrusted_content
+</code></pre>
+      </figure>
+      <p>
+        Only the first deployment above is marked lethal, and it's the only one
+        with all three legs. The code reviewer holds private data but takes no
+        untrusted input and has no way out. The docs summarizer touches
+        untrusted pages and can send mail, but has no secrets worth stealing.
+        Each of the safe three is one capability short of the trifecta. That's
+        the design lever the whole rest of this course pulls on: you rarely get
+        to remove the private data or the untrusted content, because those are
+        usually the job, so most hardening is about controlling the third leg,
+        the ability to communicate out.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          When you audit a deployment, count the legs before you reach for any
+          specific control. An internal agent that reads a private database and
+          also browses arbitrary URLs a user pastes in already has all three,
+          even if "sending data out" is just an HTTP GET with the secret in the
+          query string. The multi-tenant case is worse: one tenant's untrusted
+          content plus another tenant's private data, sharing one agent, is the
+          trifecta assembled from parts no single tenant could see was
+          dangerous. Later chapters cut the third leg at the network boundary
+          with an egress proxy, which is why "a credential the agent never holds
+          is a credential it can never leak" becomes the refrain of Part IV.
+        </p>
+      </aside>
+
+      <h2>Why "review the code" isn't the whole answer</h2>
+      <p>
+        Traditional application security leans hard on reading code: audit the
+        source, trace the data flow, prove the dangerous path can't be reached.
+        That work still matters here, but it stops short of the real risk
+        surface, because the dangerous path isn't written down in advance. It's
+        assembled at runtime out of the model's reasoning over content you don't
+        control. You can prove the agent has a Bash tool. You can't prove, from
+        the code, that no combination of inputs will ever lead it to call that
+        tool with a command an attacker supplied.
+      </p>
+      <p>
+        So the question shifts. Instead of "is this code safe," it becomes "what
+        is this agent able to do, and to whom does that matter, on its worst
+        possible run." You answer that not by trusting the model to always
+        decide correctly, but by constraining what a wrong decision can reach:
+        which files, which network destinations, which credentials, which
+        system capabilities. That reframing is the spine of everything that
+        follows. The next chapter takes inventory of the constraints Claude Code
+        and the Agent SDK already apply before you configure anything, and
+        chapter 3 organizes all of it under three principles you'll use to
+        reason about every later decision.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — everything below runs with no Claude session and no network access.
+        </p>
+        <p>
+          Run the trifecta scanner to see the verdict logic applied to four
+          deployment sketches: <code>python examples/ch01/trifecta_scan.py</code>.
+          Change the booleans in <code>DEPLOYMENTS</code> and watch which
+          scenarios flip to lethal. The rule is unforgiving on purpose: three
+          trues, or nothing.
+        </p>
+        <p>
+          Then make the challenge tests pass. <code>challenges/ch01/challenge.py</code>
+          asks you to implement <code>assess_trifecta</code>, which reports the
+          legs a deployment has, whether the combination is lethal, and which
+          legs could be cut to break it. Run
+          <code>uv run pytest challenges/ch01/</code>; the skeleton fails until
+          you fill it in. The reference solution lives in
+          <code>solutions/ch01.py</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a class="next" href="ch02.html"><span class="dir">Next →</span>Built-In Defenses, A Tour</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

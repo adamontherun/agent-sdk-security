@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 4 · The Permission Evaluation Pipeline — Agent SDK Security</title>
+<meta name="description" content="How one tool call is decided: Claude Code's deny-ask-allow order and the Agent SDK's six-step pipeline, why a broad deny beats a narrow allow, and when canUseTool is shadowed. Chapter 4 of Agent SDK Security, Part II · Permissions & Settings.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, permissions, permission evaluation, deny rules, allow rules, canUseTool, CLAUDE_SDK_CAN_USE_TOOL_SHADOWED, PreToolUse hooks, least privilege">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch04.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 4 · The Permission Evaluation Pipeline — Agent SDK Security">
+<meta property="og:description" content="How one tool call is decided: Claude Code's deny-ask-allow order and the Agent SDK's six-step pipeline, and why a broad deny always beats a narrow allow.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch04.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 4 · The Permission Evaluation Pipeline — Agent SDK Security">
+<meta name="twitter:description" content="How one tool call is decided: Claude Code's deny-ask-allow order and the Agent SDK's six-step pipeline, and why a broad deny always beats a narrow allow.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 4,
+  "name": "The Permission Evaluation Pipeline",
+  "description": "How a single tool call moves through hooks, deny, ask, mode, allow, and canUseTool — in Claude Code and in the SDK.",
+  "url": "{{PAGES_URL}}chapters/ch04.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch03.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch05.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html" class="current"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 4 · Part II — Permissions &amp; Settings</p>
+      <h1>The Permission Evaluation Pipeline</h1>
+      <p class="lede">
+        Every permission rule you write is a bet about the order things are
+        checked in. Write a careful allow rule and a careless deny rule in the
+        same file, and the deny wins even when it's broader and less specific.
+        This chapter traces one tool call from the moment Claude requests it to
+        the moment it runs or is refused, in both Claude Code and the Agent SDK,
+        so that when you harden a deployment later you know exactly which layer
+        each rule lands in.
+      </p>
+
+      <h2>Claude Code checks deny, then ask, then allow</h2>
+      <p>
+        Claude Code sorts its permission rules into three buckets and consults
+        them in a fixed order. Deny rules are checked first, then ask rules,
+        then allow rules, and the first bucket that matches decides the outcome.
+        The documentation states the consequence plainly:
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">rules are evaluated in order, deny then ask then allow, and rule specificity doesn't change the order</a>.
+        A one-line exact-match allow does not outrank a sloppy wildcard deny.
+        Specificity is a property people expect to matter because CSS and
+        routing tables work that way. Here it doesn't.
+      </p>
+      <p>
+        That single design choice is what makes deny rules a dependable security
+        control. If you write <code>Bash(aws *)</code> in the deny list, no allow
+        rule anywhere can carve out an exception for
+        <code>Bash(aws s3 ls)</code>, because the deny bucket is exhausted before
+        the allow bucket is ever read. The same holds between ask and allow: a
+        matching ask rule still prompts even when a more specific allow rule
+        would have approved the call silently. A deny is a wall, not a default
+        you can override from a higher-priority file.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          This is the property to lean on when you can't enumerate everything an
+          agent might try. You will never write an allowlist that anticipates
+          every dangerous command. You can write a short deny list for the
+          handful of capabilities that must never be reachable, and trust that
+          nothing downstream can loosen it. Chapter 8 shows how to pin that deny
+          list in managed settings so a developer's local file can't remove it.
+        </p>
+      </aside>
+
+      <h2>A bare tool name behaves differently from a scoped pattern</h2>
+      <p>
+        Denying a tool has two distinct effects depending on how you write it. A
+        bare tool name in the deny list, like <code>Bash</code>, removes the tool
+        from Claude's context entirely. Claude never sees it in the tool list and
+        can't attempt it. A scoped pattern like <code>Bash(rm *)</code> leaves
+        the tool available and blocks only the calls that match when Claude tries
+        them. The docs are explicit that
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">a bare tool name removes the tool from Claude's context, while a scoped rule leaves the tool available and blocks matching calls</a>,
+        and that <code>Bash(*)</code> is treated the same as the bare name.
+      </p>
+      <p>
+        The distinction matters for how the model behaves, not just whether a
+        call succeeds. Remove Bash entirely and Claude plans around its absence
+        from the start. Leave Bash present but block <code>rm *</code>, and Claude
+        may still propose an <code>rm</code>, watch it get refused, and try to
+        route around the refusal. Neither is wrong, but they lead to different
+        agent behaviour, and a security review should know which one a given
+        rule produces.
+      </p>
+
+      <h2>The Agent SDK runs six steps in a fixed order</h2>
+      <p>
+        The SDK exposes the same deny-ask-allow precedence, wrapped in a larger
+        pipeline. When Claude requests a tool, the SDK checks permissions in
+        <a href="https://code.claude.com/docs/en/agent-sdk/permissions" target="_blank" rel="noopener">six ordered steps</a>:
+      </p>
+      <table>
+        <thead><tr><th>Step</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>1. Hooks</td><td>PreToolUse hooks run first. A hook can deny outright or pass the call on. A hook that returns <code>allow</code> does not skip the deny and ask rules below.</td></tr>
+          <tr><td>2. Deny rules</td><td>From <code>disallowed_tools</code> and settings. A match blocks the call in every mode, including <code>bypassPermissions</code>.</td></tr>
+          <tr><td>3. Ask rules</td><td>From settings. A match falls through to your <code>canUseTool</code> callback for confirmation, even under <code>bypassPermissions</code>.</td></tr>
+          <tr><td>4. Permission mode</td><td><code>bypassPermissions</code> approves what reaches here; <code>acceptEdits</code> approves file operations; <code>plan</code> routes writes to the callback. Other modes fall through.</td></tr>
+          <tr><td>5. Allow rules</td><td>From <code>allowed_tools</code> and settings. A match approves the call.</td></tr>
+          <tr><td>6. canUseTool</td><td>If nothing above resolved the call, the runtime callback decides. In <code>dontAsk</code> mode this step is skipped and the call is denied.</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Reading the steps top to bottom answers most of the questions people ask
+        about the SDK. Why does a deny rule fire even in bypass mode? Because
+        step 2 runs before step 4. Why does an ask rule still prompt when I've
+        allowed the tool? Because step 3 runs before step 5. The order is the
+        whole specification.
+      </p>
+      <p>
+        Rather than take the ordering on faith, it helps to make it executable.
+        The example below is a small reference model of the documented six-step
+        order. It is a teaching tool for building intuition, not Claude Code's
+        actual matcher, but it reproduces the decisions the docs describe, and
+        you can poke at it.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">solutions/ch04.py (excerpt)</figcaption>
+        <pre><code class="language-python">def evaluate(call: dict) -> str:
+    # Step 1 — hooks. A hook "allow" does NOT skip deny/ask below.
+    if call.get("hook_decision") == "deny":
+        return "deny"
+    # Step 2 — deny rules win in every mode, including bypassPermissions.
+    if call.get("deny_match"):
+        return "deny"
+    # Step 3 — ask rules force a prompt even under bypass; dontAsk turns it to deny.
+    if call.get("ask_match"):
+        return "deny" if call.get("mode") == "dontAsk" else "ask"
+    # Step 4 — permission mode.
+    mode = call.get("mode", "default")
+    if mode == "bypassPermissions":
+        return "allow"
+    if mode == "acceptEdits" and call.get("is_file_op"):
+        return "allow"
+    if mode == "plan" and call.get("is_file_op"):
+        return _run_callback(call.get("can_use_tool"), mode)
+    # Step 5 — allow rules.
+    if call.get("allow_match"):
+        return "allow"
+    # Step 6 — canUseTool (skipped in dontAsk, which denies).
+    return _run_callback(call.get("can_use_tool"), mode)</code></pre>
+      </figure>
+
+      <p>
+        Running <code>examples/ch04/pipeline_demo.py</code> feeds that model a
+        handful of worked cases and prints each decision:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">python3 examples/ch04/pipeline_demo.py</figcaption>
+        <pre><code class="language-text">deny   &lt;-  hook says allow, but a deny rule matches
+deny   &lt;-  deny rule under bypassPermissions
+ask    &lt;-  ask rule under bypassPermissions
+deny   &lt;-  ask rule under dontAsk
+allow  &lt;-  acceptEdits, a file edit
+ask    &lt;-  plan mode, a file edit with an allow rule
+ask    &lt;-  nothing matches, default mode</code></pre>
+      </figure>
+
+      <p>
+        The first line is the one worth staring at. A PreToolUse hook returned
+        <code>allow</code>, and the call was still denied, because a deny rule
+        matched at step 2. The SDK docs say the same thing in prose:
+        <a href="https://code.claude.com/docs/en/agent-sdk/permissions" target="_blank" rel="noopener">a hook that returns allow does not skip the deny and ask rules</a>.
+        Chapter 7 returns to this when we use a hook as a security control: a
+        hook can tighten a decision, never loosen it past a deny.
+      </p>
+
+      <h2>When your canUseTool callback can never run</h2>
+      <p>
+        The callback at step 6 is where teams often put their real authorization
+        logic: a check against an external policy service, a per-user allowlist,
+        an audit write. The trap is that earlier steps can approve a call before
+        step 6 is ever reached, and then the callback silently never runs for
+        that tool. The SDK calls this shadowing. As of v2.1.198 the TypeScript
+        SDK emits a one-time Node warning whose code is
+        <a href="https://code.claude.com/docs/en/agent-sdk/permissions" target="_blank" rel="noopener"><code>CLAUDE_SDK_CAN_USE_TOOL_SHADOWED</code></a>
+        when it detects a configuration the callback can't be reached in.
+      </p>
+      <p>
+        Two configurations trigger it. First,
+        <code>permissionMode: 'bypassPermissions'</code>, which approves every
+        call at step 4. Second, any bare <code>allowedTools</code> entry such as
+        <code>"Read"</code>, which auto-approves that whole tool at step 5. A
+        scoped entry like <code>Bash(ls *)</code> does not shadow, because
+        non-matching Bash calls still fall through to the callback. The tail of
+        the demo above checks exactly these cases:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">python3 examples/ch04/pipeline_demo.py (tail)</figcaption>
+        <pre><code class="language-text">canUseTool reachable for Bash: False  (mode=bypassPermissions, allow=[])
+canUseTool reachable for Read: False  (mode=default, allow=['Read'])
+canUseTool reachable for Bash: True  (mode=default, allow=['Bash(ls *)'])</code></pre>
+      </figure>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          If your security check lives in <code>canUseTool</code> and you also
+          set a bare allow like <code>allowed_tools=["Read"]</code>, reads sail
+          through unchecked. The fix the docs recommend is to move any check that
+          must run on <em>every</em> call into a PreToolUse hook instead, since
+          hooks run at step 1 before anything can approve the call. Treat the
+          <code>CLAUDE_SDK_CAN_USE_TOOL_SHADOWED</code> warning as a real finding,
+          not console noise.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/permissions" target="_blank" rel="noopener">Agent SDK permissions — canUseTool shadowing</a></p>
+      </aside>
+
+      <h2>Where the sandbox changes step 4</h2>
+      <p>
+        One interaction is worth flagging now because it changes what step 4
+        does. When the Bash sandbox is enabled with
+        <code>autoAllowBashIfSandboxed: true</code>, which is the default,
+        sandboxed Bash commands run without prompting even if you have a bare
+        <code>Bash</code> ask rule, because
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">the sandbox boundary substitutes for that whole-tool prompt</a>.
+        The exceptions still hold: content-scoped ask rules like
+        <code>Bash(git push *)</code> still prompt, explicit deny rules still
+        apply, and removals targeting <code>/</code> or your home directory still
+        prompt as a circuit breaker. The sandbox is Part III's subject; the point
+        here is only that enabling it quietly weakens a bare-<code>Bash</code> ask
+        rule, so don't rely on that rule alone as your prompt gate.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          Permission rules are enforced by Claude Code, not by the model.
+          Instructions in your prompt or <code>CLAUDE.md</code> shape what Claude
+          <em>tries</em> to do, but they never change what the pipeline
+          <em>allows</em>. That separation is the reason a prompt injection can
+          change the agent's intent without changing its capabilities: the six
+          steps run identically whether the model's plan came from you or from a
+          malicious web page it just read.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">Configure permissions — enforcement note</a></p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — {{WHAT_S_ALREADY_RUNNING}}.
+        </p>
+        <p>
+          Run the worked examples with
+          <code>python3 examples/ch04/pipeline_demo.py</code> and change a case
+          to predict the decision before you re-run it.
+        </p>
+        <p>
+          Then open <code>challenges/ch04/challenge.py</code> and implement the
+          six-step <code>evaluate()</code> and the
+          <code>can_use_tool_reachable()</code> shadow check. Run
+          <code>uv run pytest challenges/ch04/</code> until the suite is green.
+          The skeleton raises <code>NotImplementedError</code>; the tests encode
+          the three facts most people get wrong, including that a hook's
+          <code>allow</code> can't beat a deny rule.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch03.html"><span class="dir">← Previous</span>Security Principles</a>
+        <a class="next" href="ch05.html"><span class="dir">Next →</span>Permission Modes Compared</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

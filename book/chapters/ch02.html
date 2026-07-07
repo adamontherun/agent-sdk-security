@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 2 · Built-In Defenses, A Tour — Agent SDK Security</title>
+<meta name="description" content="What Claude Code and the Agent SDK already protect against before you configure anything: read-only defaults, the fail-closed Bash gate, isolated context windows, trust verification. Chapter 2 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, AI agent security, prompt injection, sandboxing, permission system, fail-closed, trust verification, isolated context window">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch02.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 2 · Built-In Defenses, A Tour — Agent SDK Security">
+<meta property="og:description" content="What Claude Code and the Agent SDK already protect against before you configure anything: read-only defaults, the fail-closed Bash gate, isolated context windows, trust verification. Chapter 2 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch02.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 2 · Built-In Defenses, A Tour — Agent SDK Security">
+<meta name="twitter:description" content="What Claude Code and the Agent SDK already protect against before you configure anything: read-only defaults, the fail-closed Bash gate, isolated context windows, trust verification. Chapter 2 of Agent SDK Security, Part I · Threat Model &amp; Foundations.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 2,
+  "name": "Built-In Defenses, A Tour",
+  "description": "What Claude Code and the Agent SDK already protect against before you configure anything: read-only defaults, the fail-closed Bash gate, isolated context windows, and trust verification.",
+  "url": "{{PAGES_URL}}chapters/ch02.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch01.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch03.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html" class="current"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 2 · Part I — Threat Model &amp; Foundations</p>
+      <h1>Built-In Defenses, A Tour</h1>
+      <p class="lede">
+        Before you write a single permission rule, Claude Code and the Agent SDK
+        already refuse a lot. They default to read-only, confine writes to the
+        working directory, parse every Bash command before running it, and keep
+        fetched web content out of the main context window. This chapter is a
+        guided tour of those defaults, so that when the later parts start
+        hardening things, you know what you're building on top of rather than
+        reinventing. It also marks the edges of each protection, because a
+        defense you overestimate is worse than one you know the limits of.
+      </p>
+
+      <h2>Read-only by default</h2>
+      <p>
+        The foundation is the permission model. The Claude Code
+        <a href="https://code.claude.com/docs/en/security" target="_blank" rel="noopener">security documentation</a>
+        states it directly: "Claude Code uses strict read-only permissions by
+        default. When additional actions are needed (editing files, running
+        tests, executing commands), Claude Code requests explicit permission."
+        A built-in set of read-only commands such as <code>ls</code>,
+        <code>cat</code>, and <code>git status</code> runs without a prompt;
+        anything that can modify your system stops and asks.
+      </p>
+      <p>
+        On top of that sits a write boundary that holds regardless of what the
+        model decides. Claude Code "can only write to the folder where it was
+        started and its subfolders" and "cannot modify files in parent
+        directories without explicit permission." Reads are broader than writes
+        on purpose, so the agent can pull in system libraries and dependencies
+        it needs to understand your code, but a prompt-injected instruction to
+        overwrite <code>~/.bashrc</code> runs into a wall that isn't a matter of
+        the model's judgment. That asymmetry, wide reads and narrow writes, is
+        the first concrete security boundary in the product, and chapter 16
+        returns to it when the filesystem gets locked down for real.
+      </p>
+
+      <h2>The Bash gate: parse first, fail closed</h2>
+      <p>
+        The most security-relevant default is how Bash commands get evaluated.
+        The secure-deployment guide describes it: "Before executing bash
+        commands, Claude Code parses them into an AST and matches the result
+        against your permission rules. Commands that cannot be parsed cleanly,
+        or that do not match an allow rule, require explicit approval." Two
+        behaviors fall out of that, and both are worth internalizing now because
+        the challenge for this chapter models them.
+      </p>
+      <p>
+        The first is fail-closed matching. The security docs list it plainly:
+        "Unmatched commands default to requiring manual approval." Silence is
+        not consent. If a command doesn't match something you explicitly
+        allowed, it prompts, rather than the reverse where anything not
+        explicitly forbidden slips through. The second is a small set of
+        always-prompt constructs: "A small set of constructs such as
+        <code>eval</code> always require approval regardless of allow rules."
+        Even if you allowlisted it, <code>eval</code> stops, because a command
+        that builds and runs a string at runtime defeats the whole point of
+        matching the command you can see. Related to that, the docs note
+        "command injection detection," where "suspicious bash commands require
+        manual approval even if previously allowlisted."
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch02/failclosed_demo.py — captured output</figcaption>
+        <pre><code class="language-text">    ls  ->  allow
+   npm  ->  allow
+   git  ->  allow
+  curl  ->  prompt no matching allow rule (fail-closed)
+  wget  ->  prompt no matching allow rule (fail-closed)
+  sudo  ->  prompt no matching allow rule (fail-closed)
+  eval  ->  prompt always-prompt construct
+</code></pre>
+      </figure>
+      <p>
+        The demo above allowlists <code>ls</code>, <code>cat</code>,
+        <code>git</code>, and <code>npm</code>. Everything else prompts, and
+        <code>eval</code> prompts even though a careless operator might have
+        added it to the list. Notice <code>curl</code> and <code>wget</code>
+        landing in the prompt column: the security docs call this out as
+        network command approval, where commands that fetch content from the web
+        "are not auto-approved by default." You can still approve them once or
+        add an explicit rule like <code>Bash(curl *)</code>, but they don't ride
+        in for free, which matters because a fetch command is a ready-made
+        exfiltration path, the third leg of the trifecta from chapter 1.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          The Bash gate is a permission check, not a safety analysis. The
+          secure-deployment guide is blunt about the distinction: "This is a
+          permission gate, not a sandbox; it does not infer whether a command is
+          dangerous from its target path or effects." An allowed
+          <code>rm</code> rule doesn't get smarter about <code>rm -rf
+          /important</code> versus <code>rm ./scratch.tmp</code>; matching the
+          rule is the whole check. If you need the command's actual effect
+          constrained, that's the sandbox's job (chapter 9) or the isolation
+          boundary's (Part III), not the permission matcher's.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">Securely deploying AI agents — Built-in security features</a></p>
+      </aside>
+
+      <h2>Keeping untrusted content at arm's length</h2>
+      <p>
+        Chapter 1 made the case that untrusted content is a leg of the trifecta.
+        Several defaults exist specifically to keep that content from steering
+        the agent. When the model fetches a web page, it doesn't drop the raw
+        page into the conversation. The security docs describe two pieces here:
+        "Web fetch uses a separate context window to avoid injecting potentially
+        malicious prompts," and search results are handled so that, per the
+        secure-deployment guide, "search results are summarized rather than
+        passing raw content directly into the context, reducing the risk of
+        prompt injection from malicious web content." An instruction buried in a
+        fetched page lands in an isolated context and comes back as a summary,
+        not as a live command sitting next to your own.
+      </p>
+      <p>
+        Alongside that, the security docs list "context-aware analysis," which
+        "detects potentially harmful instructions by analyzing the full
+        request," and "input sanitization," which "prevents command injection by
+        processing user inputs." And more broadly, "tools that make network
+        requests require user approval by default," so the act of reaching out,
+        not just the act of running a shell fetch, is gated. None of these is a
+        guarantee. They are friction placed deliberately between untrusted text
+        and consequential action, which is exactly the constraint chapter 1
+        argued for.
+      </p>
+
+      <h2>Trust verification, and the flag that turns it off</h2>
+      <p>
+        Two entry points into a session get an explicit trust check. The
+        security docs describe "trust verification" covering the case where
+        "first-time codebase runs and new MCP servers require trust
+        verification." The first time you point Claude Code at an unfamiliar
+        directory, or add an MCP server, it asks before proceeding, so a repo
+        you just cloned can't silently run whatever its configuration implies.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          This is the built-in default that most surprises people moving from
+          the interactive CLI to the SDK. The security docs note that "trust
+          verification is disabled when running non-interactively with the
+          <code>-p</code> flag." A headless Agent SDK deployment has no human to
+          answer a trust prompt, so that particular gate is off by design. The
+          protection you were leaning on interactively is simply not there in
+          the automated path, which is the whole reason Parts II through V
+          exist: in production you replace the human-in-the-loop trust check
+          with permission rules, sandboxes, and network controls that don't need
+          anyone at a keyboard.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/security" target="_blank" rel="noopener">Claude Code security — Protect against prompt injection</a></p>
+      </aside>
+
+      <h2>Reducing prompt fatigue without lowering the bar</h2>
+      <p>
+        A defense that asks too often gets clicked through. Claude Code's answer
+        is scoped allowlisting: the security docs describe "prompt fatigue
+        mitigation" as "support for allowlisting frequently used safe commands
+        per-user, per-codebase, or per-organization." Accept Edits mode is the
+        packaged version of this idea, auto-approving file edits and a fixed set
+        of filesystem Bash commands like <code>mkdir</code>, <code>touch</code>,
+        <code>rm</code>, <code>mv</code>, <code>cp</code>, and <code>sed</code>
+        for paths in the working directory, while "other Bash commands and
+        out-of-scope paths still prompt." The point is to make the safe common
+        case quiet so the genuinely unusual request still stands out. Part II
+        takes this apart in detail, since the exact boundary of what each mode
+        auto-approves is where a lot of real deployments get their risk model
+        wrong.
+      </p>
+
+      <aside class="callout watch21">
+        <span class="callout-title">⏭ Version watch</span>
+        <p>
+          The sandboxed Bash tool, enabled with <code>/sandbox</code>, is the
+          one default on this tour that is still visibly evolving, and its
+          limits are documented as active. The secure-deployment guide notes the
+          built-in sandbox does no TLS inspection and can be bypassed by
+          techniques like domain fronting, pointing readers to a TLS-terminating
+          proxy where the threat model demands it. Treat sandbox mode as a
+          strong default that raises the bar, not a settled guarantee, and check
+          the <a href="https://code.claude.com/docs/en/sandboxing" target="_blank" rel="noopener">sandboxing documentation</a>
+          for its current limitations before relying on it. Chapter 9 covers
+          this boundary in full.
+        </p>
+      </aside>
+
+      <p>
+        That's the inventory. Read-only defaults, a write boundary that ignores
+        the model's opinion, a Bash gate that parses and fails closed, web
+        content held in a separate context, trust checks at first contact, and
+        allowlisting to keep the prompts meaningful. Every one of them has an
+        edge, and naming those edges is the point of the tour: the rest of the
+        course is about the controls you add where these stop. Chapter 3 gives
+        you the three principles to organize all of it.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the code here runs with no Claude session and no network access.
+        </p>
+        <p>
+          Run <code>python examples/ch02/failclosed_demo.py</code> to watch the
+          fail-closed matcher classify a batch of commands. Add a program to
+          <code>ALLOW_RULES</code> and rerun; add <code>eval</code> to it and
+          confirm it still prompts.
+        </p>
+        <p>
+          Then implement <code>decide</code> in
+          <code>challenges/ch02/challenge.py</code> so that allowlisted programs
+          are allowed, always-prompt constructs prompt even when allowlisted,
+          and anything unmatched fails closed to a prompt. Run
+          <code>uv run pytest challenges/ch02/</code>; the skeleton fails until
+          the three rules are in place. Reference solution:
+          <code>solutions/ch02.py</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch01.html"><span class="dir">← Previous</span>Why Agent Security Is Different</a>
+        <a class="next" href="ch03.html"><span class="dir">Next →</span>Security Principles</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

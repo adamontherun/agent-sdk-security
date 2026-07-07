@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 15 · Squid, Hands-On — Agent SDK Security</title>
+<meta name="description" content="Build a real Squid egress proxy step by step: a domain allowlist, SSL-bump TLS interception with your own CA, and credential injection the agent never sees. Chapter 15 of Agent SDK Security, Part IV · Credentials &amp; the Network Boundary.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, Squid proxy, SSL bump, peek and splice, credential injection, egress proxy, TLS interception, ssl_bump, request_header_add, AI agent security">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch15.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 15 · Squid, Hands-On — Agent SDK Security">
+<meta property="og:description" content="Build a real allowlisting egress proxy: ACLs, SSL-bump TLS interception, and credential injection, each step proven with captured output.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch15.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 15 · Squid, Hands-On — Agent SDK Security">
+<meta name="twitter:description" content="Build a real allowlisting egress proxy: ACLs, SSL-bump TLS interception, and credential injection, each step proven with captured output.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 15,
+  "name": "Squid, Hands-On",
+  "description": "Build a real allowlisting egress proxy: ACLs, SSL-bump TLS interception, and credential injection.",
+  "url": "{{PAGES_URL}}chapters/ch15.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch14.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch16.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html" class="current"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 15 · Part IV — Credentials &amp; the Network Boundary</p>
+      <h1>Squid, Hands-On</h1>
+      <p class="lede">
+        This is the chapter where the proxy pattern stops being a diagram. You
+        start from a Squid config that allows everything and, in three steps,
+        turn it into an egress proxy that permits only the hosts you name,
+        decrypts the TLS it is allowed to inspect, and injects a credential the
+        client never sent. Every result below is captured from the real
+        container running on the lab network in this repo. Nothing here is
+        asserted without the command and its output.
+      </p>
+
+      <h2>The lab, and the image it needs</h2>
+      <p>
+        The repo ships a <code>compose.yaml</code> with two services on a
+        network called <code>lab</code>: the Squid proxy, and a small
+        <code>mock-api</code> (a stock <code>kennethreitz/httpbin</code>) that
+        echoes back the request it received, which is how we will prove
+        injection later. The scaffold used the stock
+        <code>ubuntu/squid</code> image, and it round-trips fine as a plain
+        tunnel. It cannot do the interception this chapter needs, and the reason
+        is worth knowing before you spend an hour debugging it.
+      </p>
+      <p>
+        TLS bumping requires Squid to mint a fresh certificate for each host it
+        intercepts, which it does through an external helper called
+        <code>security_file_certgen</code>. That helper is only built when Squid
+        is compiled against OpenSSL. The <code>ubuntu/squid</code> image is built
+        against GnuTLS and ships no such helper, so it can peek at a hostname but
+        cannot decrypt. Alpine's <code>squid</code> package is built with
+        OpenSSL and includes the helper. Both facts are checkable inside the
+        image rather than taken on faith:
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">confirming the image can bump, before building on it</figcaption>
+        <pre><code class="language-bash">$ docker run --rm alpine:3.20 sh -c \
+    'apk add --no-cache squid >/dev/null 2>&1 &&
+     squid -v | head -1 &&
+     squid -v | grep -o with-openssl &&
+     ls /usr/lib/squid/security_file_certgen'
+Squid Cache: Version 6.9
+with-openssl
+/usr/lib/squid/security_file_certgen
+</code></pre>
+      </figure>
+      <p>
+        So the lab builds Squid from a small <code>infra/squid/Dockerfile</code>
+        based on Alpine. The <code>entrypoint.sh</code> initialises the
+        certificate database once with <code>security_file_certgen -c</code>,
+        clears any stale PID file so <code>docker compose restart</code> works,
+        validates the config with <code>squid -k parse</code>, and runs Squid in
+        the foreground. Before the first run you mint the proxy's certificate
+        authority:
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">infra/squid/gen-ca.sh (run once)</figcaption>
+        <pre><code class="language-bash">$ sh infra/squid/gen-ca.sh
+Wrote infra/squid/certs/squid-ca.pem and infra/squid/certs/squid-ca.key
+
+$ openssl x509 -in infra/squid/certs/squid-ca.pem -noout -subject
+subject=C=US, O=Agent SDK Security Lab, CN=Squid Egress Proxy CA
+</code></pre>
+      </figure>
+      <p>
+        That key is the whole game. Anything that trusts it will trust every
+        certificate Squid forges. It stays under <code>infra/squid/certs/</code>,
+        which the repo's <code>.gitignore</code> already excludes, and it never
+        crosses to the agent's side of the boundary.
+      </p>
+
+      <h2>Step 1 — a domain allowlist</h2>
+      <p>
+        The minimum useful control is an allowlist: the agent reaches the hosts
+        you name and nothing else, with no certificate machinery at all. Squid's
+        <code>dstdomain</code> ACL matches the request's destination host, and
+        for an HTTPS request that host is visible in the <code>CONNECT</code>
+        line and the TLS SNI even without decryption. A leading dot means the
+        domain and all its subdomains.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch15/squid.conf.step1-allowlist (excerpt)</figcaption>
+        <pre><code class="language-nginx">acl allowed_domains dstdomain .anthropic.com .github.com .httpbin.org example.com mock-api
+acl SSL_ports port 443
+acl CONNECT method CONNECT
+http_access deny CONNECT !SSL_ports
+
+http_access allow allowed_domains
+http_access deny all
+
+http_port 3128
+</code></pre>
+      </figure>
+      <p>
+        Copy that variant to <code>infra/squid/squid.conf</code>, bring the lab
+        up, and send two requests from a throwaway curl container on the
+        <code>lab</code> network: one to an allowed host, one to a host that is
+        not on the list.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">allowed vs. blocked, through the real proxy</figcaption>
+        <pre><code class="language-bash">$ docker compose up -d --build
+
+# allowed:
+$ docker run --rm --network agent-sdk-security_lab curlimages/curl \
+    -sS -o /dev/null -w "HTTP %{http_code}\n" -x http://squid:3128 https://example.com
+HTTP 200
+
+# not on the allowlist:
+$ docker run --rm --network agent-sdk-security_lab curlimages/curl \
+    -sS -x http://squid:3128 https://ifconfig.me
+curl: (7) CONNECT tunnel failed, response 403
+</code></pre>
+      </figure>
+      <p>
+        Squid's own access log records the decision on each side. Note what it
+        can and cannot see here: the host, yes; the path, no. An allowed request
+        is a <code>TCP_TUNNEL</code>, a blocked one is <code>TCP_DENIED</code>,
+        and in both cases the log line stops at <code>host:443</code> because the
+        traffic inside the tunnel is still encrypted.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">docker compose exec squid cat /var/log/squid/access.log</figcaption>
+        <pre><code class="language-text">... TCP_TUNNEL/200 6452 CONNECT example.com:443 - HIER_DIRECT/104.20.23.154 -
+... TCP_DENIED/403 3815 CONNECT ifconfig.me:443 - HIER_NONE/- text/html</code></pre>
+      </figure>
+
+      <h2>Step 2 — SSL bump, so the proxy can see inside</h2>
+      <p>
+        To inspect or rewrite an HTTPS request the proxy has to terminate the
+        TLS itself: present the client a certificate for the host it asked for,
+        read the plaintext request, then open its own connection to the real
+        server. Squid calls this bumping. Modern Squid does it with a step-based
+        model called peek-and-splice, which replaced the older
+        <code>server-first</code>/<code>client-first</code> actions that, in the
+        wiki's own words,
+        <a href="https://wiki.squid-cache.org/Features/SslPeekAndSplice" target="_blank" rel="noopener">did not work well in many cases</a>.
+      </p>
+      <p>
+        The model runs in up to three steps. At step 1 Squid has only the TCP
+        <code>CONNECT</code> and the TLS ClientHello, so it can read the SNI. The
+        <code>at_step SslBump1</code> ACL matches that first step. The config
+        peeks at step 1 to learn the hostname, then decides: bump anything on
+        the allowlist, and terminate anything else. The
+        <code>http_port</code> gains the <code>ssl-bump</code> flag and the CA to
+        sign forged certificates with, and <code>sslcrtd_program</code> points at
+        the helper that generates and caches them.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch15/squid.conf.step2-sslbump (excerpt)</figcaption>
+        <pre><code class="language-nginx">http_port 3128 ssl-bump \
+  generate-host-certificates=on \
+  dynamic_cert_mem_cache_size=4MB \
+  tls-cert=/etc/squid/certs/squid-ca.pem \
+  tls-key=/etc/squid/certs/squid-ca.key
+
+sslcrtd_program /usr/lib/squid/security_file_certgen -s /var/lib/squid/ssl_db -M 4MB
+sslcrtd_children 5
+
+acl step1 at_step SslBump1
+ssl_bump peek step1
+ssl_bump bump allowed_domains
+ssl_bump terminate all</code></pre>
+      </figure>
+      <p>
+        The <code>tls-cert=</code>/<code>tls-key=</code> spelling is the current
+        one; older guides show <code>cert=</code>/<code>key=</code>. Rather than
+        trust either, the entrypoint runs <code>squid -k parse</code> on every
+        start, which accepts the directive above without complaint on Squid 6.9.
+        After a rebuild the log confirms the CA is loaded and the port is
+        listening:
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">docker compose logs squid (filtered)</figcaption>
+        <pre><code class="language-text">Loaded signing certificate: /C=US/O=Agent SDK Security Lab/CN=Squid Egress Proxy CA
+    listening port: 3128</code></pre>
+      </figure>
+      <p>
+        Now repeat the request, but tell curl to trust the proxy CA (in a real
+        deployment this certificate goes into the agent container's trust store;
+        here <code>--cacert</code> is the equivalent). Two things prove the bump
+        happened. The certificate the client received for
+        <code>httpbin.org</code> was issued by our CA, not by a public authority.
+        And the access log now shows the full decrypted request line, path and
+        all, where step 1 saw only <code>CONNECT host:443</code>.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">the client sees a certificate the proxy minted</figcaption>
+        <pre><code class="language-bash">$ docker run --rm --network agent-sdk-security_lab \
+    -v $PWD/infra/squid/certs:/certs:ro curlimages/curl \
+    -sS -v --cacert /certs/squid-ca.pem -x http://squid:3128 https://httpbin.org/get 2>&1 \
+    | grep -iE 'subject:|issuer:'
+*  subject: CN=httpbin.org
+*  issuer: C=US; O=Agent SDK Security Lab; CN=Squid Egress Proxy CA
+</code></pre>
+      </figure>
+      <figure class="codeblock">
+        <figcaption class="code-label">the access log now shows the decrypted URL</figcaption>
+        <pre><code class="language-text">... NONE_NONE/200 0   CONNECT httpbin.org:443     - HIER_DIRECT/3.219.145.192 -
+... TCP_MISS/200  616 GET https://httpbin.org/get - HIER_DIRECT/3.219.145.192 application/json</code></pre>
+      </figure>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ This is a man-in-the-middle. Know the law.</span>
+        <p>
+          Bumping is not a metaphor. Squid's own wiki states that
+          <q>decrypting HTTPS tunnels constitutes a man-in-the-middle attack from
+          the overall network security point of view,</q> and warns that
+          <q>decrypting HTTPS tunnels without user consent or knowledge may
+          violate ethical norms and may be illegal in your jurisdiction.</q>
+          Squid's decryption features are <q>designed for deployment with user
+          consent or, at the very least, in environments where decryption
+          without consent is legal.</q> Intercepting your own lab traffic on your
+          own machine is fine. Pointing this at traffic you do not own, or that
+          carries other people's data, is a legal and ethical decision, not a
+          technical one, and it is yours to make deliberately. HTTPS was designed
+          to give users an expectation of privacy; bumping removes it.
+        </p>
+        <p class="source">Source: <a href="https://wiki.squid-cache.org/Features/SslBump" target="_blank" rel="noopener">Squid wiki — Feature: Squid-in-the-middle SSL Bump</a></p>
+      </aside>
+
+      <h2>Step 3 — inject a credential the agent never held</h2>
+      <p>
+        Because the proxy now decrypts the request, it can also add to it.
+        <code>request_header_add</code> attaches a header to every request bound
+        for an allowlisted host. The agent's own request carries no credential;
+        the upstream still receives one. In production the value comes from a
+        secret store and never appears in the file; it is inline here so the lab
+        is self-contained.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch15/squid.conf.step3-inject (excerpt)</figcaption>
+        <pre><code class="language-nginx">request_header_add Authorization "Bearer sk-lab-INJECTED-BY-PROXY" allowed_domains</code></pre>
+      </figure>
+      <p>
+        The proof is the echo service. The client sends no
+        <code>Authorization</code> header of its own. The upstream reports having
+        received one. This works on the plain-HTTP mock and on the bumped HTTPS
+        request equally, because <code>request_header_add</code> only touches
+        requests Squid can actually read, which after step 2 includes the
+        decrypted HTTPS. It would do nothing to a connection that was merely
+        tunnelled.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">client sends nothing; upstream receives the injected credential</figcaption>
+        <pre><code class="language-bash"># local mock, plain HTTP — no credential on the client command line:
+$ docker run --rm --network agent-sdk-security_lab curlimages/curl \
+    -sS -x http://squid:3128 http://mock-api/headers | grep -i authorization
+    "Authorization": "Bearer sk-lab-INJECTED-BY-PROXY",
+
+# httpbin.org, bumped HTTPS — same result inside the decrypted request:
+$ docker run --rm --network agent-sdk-security_lab \
+    -v $PWD/infra/squid/certs:/certs:ro curlimages/curl \
+    -sS --cacert /certs/squid-ca.pem -x http://squid:3128 https://httpbin.org/headers \
+    | grep -i authorization
+    "Authorization": "Bearer sk-lab-INJECTED-BY-PROXY",
+</code></pre>
+      </figure>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Once bumping is on, every client must trust the proxy CA to reach even
+          an allowed host, because Squid presents its own certificate for
+          everything. That is a feature: a container whose trust store you did
+          not provision cannot silently reach out past the proxy. It is also the
+          most common reason a freshly wired agent throws
+          <code>certificate verify failed</code>. Install the CA in the agent
+          image's trust store, not on the fly. Chapter 18 wires this exact Squid,
+          CA and all, into an ECS task where the agent container has no route to
+          the internet except through it.
+        </p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — Docker and the compose lab are ready to go.
+        </p>
+        <p>
+          From the repo root: <code>sh infra/squid/gen-ca.sh</code> once, then
+          <code>docker compose up -d --build</code>, then
+          <code>sh examples/ch15/prove.sh</code>. That script runs all four
+          proofs above against the live container, the allowlist allow and deny,
+          the bump, and both injection paths, so you can watch them pass on your
+          own machine. The labeled <code>squid.conf.step*</code> files under
+          <code>examples/ch15/</code> are the snapshots at each stage;
+          <code>infra/squid/squid.conf</code> holds the final one.
+        </p>
+        <p>
+          The challenge for this part lives in chapter 16. If you want to go
+          further with Squid here, try tightening <code>ssl_bump</code> so a host
+          on the allowlist is spliced (allowed through without decryption) while
+          the rest are bumped, and confirm from the access log which requests
+          show a full URL and which stop at <code>CONNECT</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch14.html"><span class="dir">← Previous</span>The Proxy Pattern</a>
+        <a class="next" href="ch16.html"><span class="dir">Next →</span>Filesystem Configuration</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

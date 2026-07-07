@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 20 · Observability and Audit — Agent SDK Security</title>
+<meta name="description" content="OTEL wiring for the Agent SDK, proxy logs as the network audit trail, credential rotation, and the first moves when you suspect a prompt-injection-driven action. Chapter 20 of Agent SDK Security, Part V · Production Deployment.">
+<meta name="keywords" content="Claude Agent SDK, OpenTelemetry, observability, audit, Squid access log, incident response, prompt injection, credential rotation, ECS, Fargate, AWS Lambda MicroVMs, Terraform">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch20.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 20 · Observability and Audit — Agent SDK Security">
+<meta property="og:description" content="OTEL wiring for the Agent SDK, proxy logs as the network audit trail, credential rotation, and the first moves when you suspect a prompt-injection-driven action. Chapter 20 of Agent SDK Security, Part V · Production Deployment.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch20.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 20 · Observability and Audit — Agent SDK Security">
+<meta name="twitter:description" content="OTEL wiring for the Agent SDK, proxy logs as the network audit trail, credential rotation, and the first moves when you suspect a prompt-injection-driven action. Chapter 20 of Agent SDK Security, Part V · Production Deployment.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 20,
+  "name": "Observability and Audit",
+  "description": "What to log at the proxy, what to export over OTEL, and how to find out something went wrong before a user tells you.",
+  "url": "{{PAGES_URL}}chapters/ch20.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch19.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html" class="current"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 20 · Part V — Production Deployment</p>
+      <h1>Observability and Audit</h1>
+      <p class="lede">
+        Every control in this book can be running correctly and you would not know
+        it from the outside. The permission pipeline denies a call, the sandbox
+        blocks a write, the proxy refuses a domain, and none of it is visible unless
+        something records it. This closing chapter is about that record: the
+        telemetry the Agent SDK exports, the proxy logs that show what the agent
+        actually reached over the network, and the first moves when you suspect a
+        prompt injection drove an action. It answers the question the previous
+        nineteen chapters set up but never closed: how do you know it is working?
+      </p>
+
+      <h2>Telemetry from the SDK</h2>
+      <p>
+        The SDK does not produce telemetry itself. It passes OpenTelemetry
+        configuration through to the <code>claude</code> subprocess, which has the
+        instrumentation built in and exports directly to your collector. So you
+        configure it with environment variables at the container or orchestrator
+        level, and every <code>query()</code> call picks them up with no code change.
+        Telemetry stays off until you set <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code>
+        and choose at least one exporter, per the
+        <a href="https://code.claude.com/docs/en/agent-sdk/observability" target="_blank" rel="noopener">observability documentation</a>.
+      </p>
+      <p>
+        There are three independent signals, each with its own switch. Metrics carry
+        counters for tokens, cost, sessions, and tool decisions. Log events carry a
+        structured record for each prompt, API request, API error, and tool result.
+        Traces carry spans for each interaction, model request, tool call, and hook,
+        and they are in beta, so they need one extra flag.
+      </p>
+
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Signal</th><th>Enable with</th></tr></thead>
+        <tbody>
+          <tr><td>Metrics</td><td><code>OTEL_METRICS_EXPORTER</code></td></tr>
+          <tr><td>Log events</td><td><code>OTEL_LOGS_EXPORTER</code></td></tr>
+          <tr><td>Traces (beta)</td><td><code>OTEL_TRACES_EXPORTER</code> plus <code>CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1</code></td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch20/otel_env.py (excerpt)</figcaption>
+        <pre><code class="language-python">BASE_OTEL_ENV = {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    # Required for traces (beta). Metrics and log events export without it.
+    "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+    "OTEL_TRACES_EXPORTER": "otlp",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector.internal:4318",
+}</code></pre>
+      </figure>
+
+      <p>
+        For a multi-tenant deployment, attach the end user's identity as resource
+        attributes on each call so tool activity is attributable to the user the
+        agent acted for, not just to your service's credential. Percent-encode the
+        values, because <code>OTEL_RESOURCE_ATTRIBUTES</code> reserves commas, spaces,
+        and equals signs. With end-user identity attached, the
+        <code>tool_decision</code>, <code>tool_result</code>, and
+        <code>permission_mode_changed</code> events become a per-user audit trail you
+        can forward to a SIEM.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          Do not set <code>console</code> as an exporter value when running through
+          the SDK. The <code>console</code> exporter writes telemetry to standard
+          output, which is the same channel the SDK uses as its message pipe, so it
+          corrupts the stream. To inspect telemetry locally, point
+          <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> at a local collector or an
+          all-in-one Jaeger container instead.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/observability" target="_blank" rel="noopener">Observability with OpenTelemetry</a></p>
+      </aside>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Telemetry is structural by default: durations, model names, tool names, and
+          token counts, but not the content the agent read or wrote. Prompt text and
+          tool inputs stay out of exports unless you opt in with
+          <code>OTEL_LOG_USER_PROMPTS=1</code>, <code>OTEL_LOG_TOOL_DETAILS=1</code>,
+          or <code>OTEL_LOG_TOOL_CONTENT=1</code>. Leave these unset unless your
+          observability pipeline is approved to store the data your agent handles.
+          Turning them on sends the file paths, shell commands, and tool bodies your
+          agent touched to your collector, which is a data-handling decision, not a
+          logging convenience.
+        </p>
+      </aside>
+
+      <h2>The proxy log is the network truth</h2>
+      <p>
+        SDK telemetry tells you what the agent decided and which tools ran. It does
+        not, by itself, tell you what left the box. That is the proxy's job. The
+        Squid access log from chapter 15, and the sidecar logs from chapter 18, are
+        the record of every destination the agent actually reached over the network.
+        When the two disagree, the proxy wins, because it sits at the boundary the
+        agent cannot see past.
+      </p>
+      <p>
+        This is why the whole course routes egress through a proxy rather than
+        trusting the agent to behave. A prompt injection can talk the model into
+        trying to reach an attacker's server. It cannot make the request succeed if
+        the proxy's allowlist does not include that domain, and the attempt lands in
+        the access log either way. Configure the proxy to log in a format you can
+        parse, keep those logs somewhere the agent's container cannot write to, and
+        you have an audit trail that survives a compromised session.
+      </p>
+
+      <h2>Rotating the credential the agent never sees</h2>
+      <p>
+        Part IV's proxy pattern keeps the real credential outside the agent's
+        boundary: the agent makes a request without it, and the proxy injects it
+        before forwarding. That design also makes rotation cheap and safe. Because
+        the key lives in one place (Secrets Manager in chapter 18, resolved into the
+        sidecar at task start) rather than distributed to every agent, you rotate it
+        by updating the secret and recycling the proxy, and no agent container needs
+        to change. Rotate on a schedule, and rotate immediately if a proxy log shows
+        a credentialed request going somewhere it should not have. The agent never
+        held the old key, so the blast radius of a rotation is the proxy, not the
+        fleet.
+      </p>
+
+      <h2>When you suspect an injection: first moves</h2>
+      <p>
+        Suppose a user reports the agent did something it should not have, or an
+        alert fires. Three places hold the answer, and they line up with three parts
+        of this book.
+      </p>
+      <p>
+        Start at the proxy access log, because it shows where the agent tried to go.
+        An unexpected domain, especially a paste site, a raw IP, or the cloud
+        metadata endpoint at <code>169.254.169.254</code>, is the signature of an
+        exfiltration attempt. Next, read the permission-denial events from the SDK
+        telemetry: a burst of denied tool calls says the model was pushed toward
+        actions your rules blocked, which is what a live injection looks like from
+        the permission pipeline's side. Then check the hook rejections from
+        chapter 7, since a <code>PreToolUse</code> hook firing is the layer catching
+        what the static rules could not express. The triage example turns the first
+        of these into a tool.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">python examples/ch20/triage_access_log.py</figcaption>
+        <pre><code class="language-text">3 off-allowlist request(s):
+  line   4  CONNECT  files.attacker-drop.example
+  line   5  CONNECT  paste.example.io
+  line   6  GET      169.254.169.254</code></pre>
+      </figure>
+
+      <p>
+        Those three lines are what a first-pass triage surfaces from a sample Squid
+        log: two attempts to reach exfiltration destinations and one attempt on the
+        instance-metadata endpoint, which is a classic move to steal cloud
+        credentials. The allowlisted traffic (the Anthropic API, the npm registry,
+        GitHub) produces no finding, so what remains is the short list worth a human's
+        attention.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          The triage tool reads Squid's native access-log format, where each line is
+          space-separated and the request target is the sixth field. For a
+          <code>CONNECT</code> tunnel that target is <code>host:port</code>; for a
+          plain method it is a full URL. Deriving the bare hostname from both shapes
+          and comparing against an allowlist is the entire logic. It is deliberately
+          small, because incident triage tools that nobody can read in a hurry do not
+          get used in a hurry.
+        </p>
+      </aside>
+
+      <h2>The whole stack, in one sentence per layer</h2>
+      <p>
+        This is where the parts meet. The permission pipeline from Part II decides
+        whether a tool call is allowed. The isolation from Part III decides what a
+        call can touch if the process is compromised anyway. The network boundary
+        from Part IV decides where the agent can reach and keeps the credential out
+        of its hands. The hosting model and deployments from Part V decide where all
+        of that runs and how tenants stay apart. Observability is the layer that
+        makes the other four legible: the telemetry, the proxy logs, and the audit
+        trail are how a control you configured becomes a control you can prove is
+        holding. An agent's behavior cannot be fully predicted from its code, which
+        is where this course started. What you can do is bound what the behavior is
+        able to reach, and then watch the boundary.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — both examples are plain Python, no Claude session or network needed.
+        </p>
+        <p>
+          Run the triage tool against the sample proxy log:
+          <code>python examples/ch20/triage_access_log.py</code>. Then run
+          <code>python examples/ch20/otel_env.py</code> to see the exact OTEL
+          environment the SDK forwards to the CLI, with per-user attribution and no
+          content-logging flags.
+        </p>
+        <p>
+          Then implement <code>host_from_target</code> and
+          <code>scan_access_log</code> in <code>challenges/ch20/challenge.py</code>,
+          a minimal incident-response scanner that flags every request to a domain
+          outside the allowlist. Check it with
+          <code>uv run pytest challenges/ch20</code>, then
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch20</code>. That is the
+          last challenge in the course.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch19.html"><span class="dir">← Previous</span>Deploying on AWS Lambda MicroVMs</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 17 · Hosting the Agent SDK — Agent SDK Security</title>
+<meta name="description" content="The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host. Chapter 17 of Agent SDK Security, Part V · Production Deployment.">
+<meta name="keywords" content="Claude Agent SDK, hosting, subprocess model, multi-tenant isolation, session patterns, scaling, CLAUDE_CONFIG_DIR, setting_sources, OpenTelemetry, ECS, Fargate, AWS Lambda MicroVMs, Terraform">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch17.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 17 · Hosting the Agent SDK — Agent SDK Security">
+<meta property="og:description" content="The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host. Chapter 17 of Agent SDK Security, Part V · Production Deployment.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch17.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 17 · Hosting the Agent SDK — Agent SDK Security">
+<meta name="twitter:description" content="The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host. Chapter 17 of Agent SDK Security, Part V · Production Deployment.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 17,
+  "name": "Hosting the Agent SDK",
+  "description": "The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host.",
+  "url": "{{PAGES_URL}}chapters/ch17.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch16.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch18.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html" class="current"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 17 · Part V — Production Deployment</p>
+      <h1>Hosting the Agent SDK</h1>
+      <p class="lede">
+        Everything up to here hardened one agent: its permissions, its sandbox,
+        the network it can see. Production adds a second question. You are not
+        running one agent, you are running many, often for different tenants, on
+        shared hosts. This chapter covers what a running agent actually is on the
+        box (a supervised subprocess with state on local disk), how long its
+        container should live relative to the sessions it serves, and the
+        isolation settings that keep one tenant's files and memory from bleeding
+        into another's. It is the model that chapters 18 and 19 then place onto
+        two different pieces of AWS.
+      </p>
+
+      <h2>The subprocess model</h2>
+      <p>
+        When your application calls <code>query()</code>, the SDK does not make an
+        HTTP call and wait. It spawns a separate <code>claude</code> CLI process
+        and talks to it over stdio. That subprocess owns a shell, a working
+        directory, and the JSONL session transcripts on local disk. One agent
+        session is one subprocess, so running N concurrent sessions means N
+        process trees, each holding its own transcript. This is the fact the rest
+        of the chapter follows from, per the
+        <a href="https://code.claude.com/docs/en/agent-sdk/hosting#the-subprocess-model" target="_blank" rel="noopener">hosting documentation</a>.
+      </p>
+      <p>
+        By default every subprocess inherits your application's working directory.
+        When sessions need separate filesystems, pass <code>cwd</code> on each
+        call so they do not write over each other.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">per-session working directory</figcaption>
+        <pre><code class="language-python">from claude_agent_sdk import query, ClaudeAgentOptions
+
+async for message in query(
+    prompt=prompt,
+    options=ClaudeAgentOptions(cwd="/work/session-a"),
+):
+    ...
+</code></pre>
+      </figure>
+
+      <p>
+        Three kinds of agent state live on the container's filesystem, and none
+        of them survive a container restart, a scale-down, or a move to another
+        node. The documentation names all three:
+      </p>
+
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>State</th><th>Default location</th></tr></thead>
+        <tbody>
+          <tr><td>Session transcripts</td><td><code>~/.claude/projects/</code>, or <code>projects/</code> under <code>CLAUDE_CONFIG_DIR</code> if set</td></tr>
+          <tr><td><code>CLAUDE.md</code> memory files</td><td><code>~/.claude/CLAUDE.md</code> for the user tier, the working directory for the project tier</td></tr>
+          <tr><td>Working-directory artifacts</td><td>The session's working directory</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <p>
+        A transcript a user expects to resume needs to be mirrored to durable
+        storage with a
+        <a href="https://code.claude.com/docs/en/agent-sdk/session-storage" target="_blank" rel="noopener"><code>SessionStore</code> adapter</a>.
+        The store mirrors transcripts only, not memory files or other
+        working-directory artifacts, so those need their own volume or object-store
+        sync. For security this ephemerality is a feature worth keeping where you
+        can: a container that forgets everything on exit is a smaller target than
+        one that accumulates every tenant's history on a shared disk.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          The subprocess is the same <code>claude</code> binary you run
+          interactively, bundled inside the SDK package and pinned to its version.
+          Updating the SDK is how you update the CLI. That also means the
+          telemetry instrumentation from chapter 20 is already compiled into the
+          process the SDK spawns; you turn it on with environment variables, not a
+          separate agent.
+        </p>
+      </aside>
+
+      <h2>Choosing a session pattern</h2>
+      <p>
+        The four patterns in the hosting docs differ on one axis: how long the
+        container lives relative to the sessions it serves. Picking one is mostly
+        a question of how your users show up.
+      </p>
+      <p>
+        <strong>Ephemeral</strong> sessions create a container per task and destroy
+        it when the task finishes. A one-shot entrypoint calls the SDK and exits.
+        This fits bug-fix runs, receipt extraction, a document translation, any
+        job with a clear end. It is also the easiest pattern to reason about for
+        security, because the blast radius of a compromised session is one
+        container that is about to be thrown away.
+      </p>
+      <p>
+        <strong>Long-running</strong> containers hold many sessions at once behind
+        an HTTP or WebSocket endpoint, mapping each active session to a live query.
+        This is what an email triage agent or a Slack bot needs. In Python you hold
+        a session open across turns with
+        <a href="https://code.claude.com/docs/en/agent-sdk/python#claudesdkclient" target="_blank" rel="noopener"><code>ClaudeSDKClient</code></a>,
+        and you size the container for the peak number of concurrent sessions it
+        must keep in memory.
+      </p>
+      <p>
+        <strong>Hybrid</strong> sessions are ephemeral containers that hydrate from
+        a <code>SessionStore</code> on startup and persist updates back, so they can
+        spin down while idle and come back when the user returns. The store is
+        required here rather than optional: shut a container down without one and
+        the transcript goes with it. This fits work that spans hours but sits idle
+        between check-ins, like a research task a user pokes at now and then.
+      </p>
+      <p>
+        A <strong>multi-agent</strong> container runs several SDK subprocesses side
+        by side for agents that collaborate closely. Give each its own working
+        directory and isolate settings loading so per-agent <code>CLAUDE.md</code>
+        files do not leak across agents. That last point is the same isolation
+        problem multi-tenancy raises, which the section below handles directly.
+      </p>
+
+      <h2>Provisioning and the concurrency math</h2>
+      <p>
+        The docs give
+        <a href="https://code.claude.com/docs/en/agent-sdk/hosting#resources" target="_blank" rel="noopener">1 GiB of RAM, 5 GiB of disk, and 1 CPU per agent</a>
+        as a starting point for a freshly started instance. Treat it as a floor.
+        Memory grows with session length and tool activity, so a long session under
+        heavy tool load can push well past a gigabyte, and the same host then holds
+        far fewer agents.
+      </p>
+      <p>
+        Because each session is its own subprocess, concurrency on a host is
+        bounded by RAM. The
+        <a href="https://code.claude.com/docs/en/agent-sdk/hosting#scaling-and-concurrency" target="_blank" rel="noopener">scaling formula</a>
+        is one line:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">agents per host</figcaption>
+        <pre><code class="language-text">agents per host = (host RAM - overhead) / (per-session RAM ceiling)</code></pre>
+      </figure>
+
+      <p>
+        You get the per-session ceiling by measuring, not guessing: run a
+        representative session to your target length under your expected tool load
+        and record its peak RSS. The chapter's example turns the formula into a
+        small planner. A 16 GiB host with 2 GiB of overhead holds fourteen 1 GiB
+        sessions but only four 3 GiB ones, which is the whole point of measuring
+        the ceiling before you size a fleet.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          For long-running containers behind a load balancer, pin each session to
+          one container with consistent hashing on the session ID. A pinned session
+          keeps hitting the same running subprocess until the container recycles it.
+          Two limitations from the docs shape capacity planning: a session has
+          <a href="https://code.claude.com/docs/en/agent-sdk/hosting#known-limitations" target="_blank" rel="noopener">no top-level timeout</a>
+          (bound it with <code>maxTurns</code>), and memory grows over long sessions
+          (cap length or recycle subprocesses periodically).
+        </p>
+      </aside>
+
+      <h2>Multi-tenant isolation</h2>
+      <p>
+        This is the security core of the chapter. By default the SDK reads settings
+        and <code>CLAUDE.md</code> memory files from the filesystem. In a shared
+        container serving more than one tenant, those files are a leak path: one
+        tenant's memory or settings load into another tenant's session. Closing that
+        path takes four SDK-level options plus a network control, all named in the
+        <a href="https://code.claude.com/docs/en/agent-sdk/hosting#multi-tenant-isolation" target="_blank" rel="noopener">multi-tenant isolation</a>
+        section.
+      </p>
+      <p>
+        Pass <code>setting_sources=[]</code> so no filesystem settings load at all.
+        Set <code>CLAUDE_CODE_DISABLE_AUTO_MEMORY=1</code>, because auto memory loads
+        into the system prompt regardless of <code>setting_sources</code>. Point
+        <code>CLAUDE_CONFIG_DIR</code> at a per-tenant directory so tenants do not
+        share the global <code>~/.claude.json</code>. Give each tenant its own working
+        directory and pass <code>cwd</code> explicitly on every call. The example
+        below applies all four together.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">per-tenant isolation on a shared container</figcaption>
+        <pre><code class="language-python">from claude_agent_sdk import query, ClaudeAgentOptions
+
+async for message in query(
+    prompt=prompt,
+    options=ClaudeAgentOptions(
+        cwd=tenant_dir,          # a path no other tenant can read
+        setting_sources=[],      # load no filesystem settings
+        env={
+            "CLAUDE_CONFIG_DIR": config_dir,          # per-tenant config
+            "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",   # auto memory ignores setting_sources
+        },
+    ),
+):
+    ...
+</code></pre>
+      </figure>
+
+      <p>
+        Construct <code>tenant_dir</code> and <code>config_dir</code> so each tenant
+        gets a path no other tenant can reach. In Python the <code>env</code> dict
+        merges on top of the inherited environment, so the subprocess still sees
+        <code>PATH</code> and <code>ANTHROPIC_API_KEY</code>. The fifth control is the
+        one this course has spent Part IV building: per-tenant egress rules at the
+        proxy, so a compromised tenant cannot exfiltrate through another tenant's
+        outbound policy. Chapters 18 and 19 are where these settings meet real
+        infrastructure.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          <code>setting_sources=[]</code> does not silence every input. Auto memory
+          at <code>~/.claude/projects/&lt;project&gt;/memory/</code> loads regardless,
+          which is why <code>CLAUDE_CODE_DISABLE_AUTO_MEMORY=1</code> is a separate,
+          required step and not a nice-to-have. Set the flag and give each tenant a
+          distinct <code>CLAUDE_CONFIG_DIR</code>; leaving either out reopens the leak
+          you were trying to close.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/hosting#multi-tenant-isolation" target="_blank" rel="noopener">Hosting the Agent SDK — multi-tenant isolation</a></p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the example is plain Python, no Claude session or network needed.
+        </p>
+        <p>
+          Run the host planner to see the scaling formula turn RAM into a session
+          count: <code>python examples/ch17/scaling.py</code>. It prints how many
+          sessions fit on four differently sized hosts and how much RAM is left over
+          after the last whole session.
+        </p>
+        <p>
+          Then open <code>challenges/ch17/challenge.py</code> and implement
+          <code>agents_per_host</code> so it floors the division, never returns a
+          negative count, and rejects a non-positive per-session ceiling. Verify with
+          <code>uv run pytest challenges/ch17</code> (skeleton fails), and
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch17</code> to check the
+          reference solution.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch16.html"><span class="dir">← Previous</span>Filesystem Configuration</a>
+        <a class="next" href="ch18.html"><span class="dir">Next →</span>Deploying on Amazon ECS</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

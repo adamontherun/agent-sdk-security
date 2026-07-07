@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 7 · Hooks as a Security Control — Agent SDK Security</title>
+<meta name="description" content="PreToolUse hooks run before permission rules: the stdin/stdout JSON contract, exit codes, why a hook's allow still can't skip a deny rule, and a real URL-allowlist hook you can test without a live model. Chapter 7 of Agent SDK Security, Part II · Permissions & Settings.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, PreToolUse hooks, hook exit codes, permissionDecision, hookSpecificOutput, security hook, URL allowlist, stdin stdout JSON, defense in depth">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch07.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 7 · Hooks as a Security Control — Agent SDK Security">
+<meta property="og:description" content="PreToolUse hooks run before permission rules: the stdin/stdout JSON contract, exit codes, and a real URL-allowlist hook you can test without a live model.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch07.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 7 · Hooks as a Security Control — Agent SDK Security">
+<meta name="twitter:description" content="PreToolUse hooks run before permission rules: the stdin/stdout JSON contract, exit codes, and a real URL-allowlist hook you can test without a live model.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 7,
+  "name": "Hooks as a Security Control",
+  "description": "PreToolUse hooks and canUseTool as the layer that catches what rules can't express.",
+  "url": "{{PAGES_URL}}chapters/ch07.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch06.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch08.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html" class="current"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 7 · Part II — Permissions &amp; Settings</p>
+      <h1>Hooks as a Security Control</h1>
+      <p class="lede">
+        Chapter 6 ended on a boundary permission rules can't draw: they can gate
+        a command, but not the URL inside it. A hook can. A PreToolUse hook sees
+        the full tool call before any rule is consulted, runs your code, and
+        returns a decision. That makes it the place to enforce the checks the
+        rule language can't express. This chapter is the one you can do for real
+        without a logged-in model, because a hook is just a program that reads
+        JSON on stdin and writes a decision to stdout.
+      </p>
+
+      <h2>Where hooks sit in the pipeline</h2>
+      <p>
+        In the SDK's six steps, hooks are step 1. They run before deny rules,
+        before ask rules, before the permission mode, before everything. That
+        position is the source of both their power and their limit. A hook can
+        block a call that every rule would have allowed, which is why the docs
+        suggest putting checks that must run on <em>every</em> tool call into a
+        PreToolUse hook rather than <code>canUseTool</code>. But a hook can't
+        force a call through against a deny rule. The docs are explicit that
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">hook decisions don't bypass permission rules</a>:
+        a hook returning <code>allow</code> skips the interactive prompt, but deny
+        and ask rules are still evaluated, so a managed deny always wins.
+      </p>
+      <p>
+        The asymmetry is exactly what you want from a security layer. A hook can
+        only ever tighten the decision, never loosen it past the deny wall from
+        Chapter 4. You can hand an agent a broad <code>Bash</code> allow and use
+        a hook to carve dangerous commands back out, confident the hook can't
+        accidentally re-enable something a deny rule forbade.
+      </p>
+
+      <h2>The stdin/stdout contract</h2>
+      <p>
+        A Claude Code hook is an executable. When a tool call fires, Claude Code
+        runs your command and passes the event as JSON on stdin. For a Bash
+        <code>PreToolUse</code> event, that JSON
+        <a href="https://code.claude.com/docs/en/hooks-guide" target="_blank" rel="noopener">looks like this</a>:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">stdin (PreToolUse, Bash)</figcaption>
+        <pre><code class="language-json">{
+  "session_id": "abc123",
+  "cwd": "/Users/sarah/myproject",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "npm test"
+  }
+}</code></pre>
+      </figure>
+
+      <p>
+        Your script reads that, decides, and communicates back through the exit
+        code and stdout. The two channels mean different things. The
+        <a href="https://code.claude.com/docs/en/hooks-guide" target="_blank" rel="noopener">exit codes</a>
+        are the blunt instrument: exit 0 means no objection and the normal
+        permission flow proceeds, exit 2 blocks the call and sends stderr back to
+        Claude as feedback, and any other code lets the call proceed after
+        logging a hook error. For structured control you exit 0 and print a JSON
+        object to stdout instead. Don't mix the two: Claude Code ignores the JSON
+        if you exit 2.
+      </p>
+      <p>
+        The structured form is a <code>hookSpecificOutput</code> object carrying a
+        <code>permissionDecision</code> of <code>"allow"</code>,
+        <code>"deny"</code>, or <code>"ask"</code>, plus a
+        <code>permissionDecisionReason</code> that Claude sees. Critically,
+        <a href="https://code.claude.com/docs/en/hooks-guide" target="_blank" rel="noopener"><code>"allow"</code> skips the interactive prompt but does not override permission rules</a>:
+        a matching deny still blocks, a matching ask still prompts. Which is the
+        pipeline behaviour from Chapter 4, now visible from the hook's side.
+      </p>
+
+      <h2>A real hook: enforce a URL allowlist</h2>
+      <p>
+        Chapter 6 showed that a <code>Bash(curl ...)</code> rule can't reliably
+        constrain a URL. The hook below can, because it parses every
+        <code>http(s)</code> URL out of the command string and checks each host
+        against an allowlist. It also blocks edits to a few protected files. It
+        emits the structured deny form on a block and stays silent otherwise, so
+        an allowed call falls through to the normal permission flow.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch07/url_guard.py (excerpt)</figcaption>
+        <pre><code class="language-python">ALLOWED_DOMAINS = frozenset(
+    {"github.com", "api.github.com", "pypi.org", "files.pythonhosted.org"}
+)
+PROTECTED_FILE_PATTERNS = (".env", ".git/", ".ssh/", ".aws/credentials")
+_URL_RE = re.compile(r"https?://([^/\s:'\"]+)", re.IGNORECASE)
+
+
+def _host_allowed(host: str) -> bool:
+    host = host.lower().rstrip(".")
+    return any(host == d or host.endswith("." + d) for d in ALLOWED_DOMAINS)
+
+
+def decide(input_data: dict) -> dict:
+    tool_name = input_data.get("tool_name", "")
+    tool_input = input_data.get("tool_input", {}) or {}
+
+    if tool_name == "Bash":
+        for host in _URL_RE.findall(tool_input.get("command", "")):
+            if not _host_allowed(host):
+                return _deny(f"URL host '{host}' is not on the allowlist.")
+        return {}
+
+    if tool_name in {"Edit", "Write", "MultiEdit"}:
+        file_path = tool_input.get("file_path", "")
+        for pattern in PROTECTED_FILE_PATTERNS:
+            if pattern in file_path:
+                return _deny(f"'{file_path}' matches protected pattern '{pattern}'.")
+        return {}
+
+    return {}</code></pre>
+      </figure>
+
+      <p>
+        The host check is the part worth reading closely. It allows a host only
+        when it equals an allowed domain or is a subdomain of one, so
+        <code>api.github.com</code> passes but <code>github.com.evil.com</code>
+        does not, because the latter ends in <code>.evil.com</code>, not
+        <code>.github.com</code>. That's the same lookalike defense WebFetch's
+        dot-crossing rule gives you, written by hand for the Bash case.
+      </p>
+
+      <h2>Test it for real, no model required</h2>
+      <p>
+        Because the contract is just stdin and stdout, you can exercise the hook
+        exactly the way Claude Code will, by piping the documented JSON shape into
+        it and reading the decision back. Here is a blocked call, an allowed call,
+        and a blocked edit, run against the actual script:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">block: curl to a non-allowlisted host</figcaption>
+        <pre><code class="language-bash">$ echo '{"tool_name":"Bash","tool_input":{"command":"curl -L http://bit.ly/xyz"}}' \
+    | python3 examples/ch07/url_guard.py
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "URL host 'bit.ly' is not on the allowlist. Allowed: api.github.com, files.pythonhosted.org, github.com, pypi.org."}}
+$ echo "exit=$?"
+exit=0</code></pre>
+      </figure>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">allow: curl to an allowlisted host (no output = no objection)</figcaption>
+        <pre><code class="language-bash">$ echo '{"tool_name":"Bash","tool_input":{"command":"curl https://api.github.com/user"}}' \
+    | python3 examples/ch07/url_guard.py
+$ echo "exit=$?"
+exit=0</code></pre>
+      </figure>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">block: an edit to a lookalike domain and to .env</figcaption>
+        <pre><code class="language-bash">$ echo '{"tool_name":"Bash","tool_input":{"command":"wget https://github.com.evil.com/x"}}' \
+    | python3 examples/ch07/url_guard.py
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "URL host 'github.com.evil.com' is not on the allowlist. Allowed: api.github.com, files.pythonhosted.org, github.com, pypi.org."}}
+$ echo '{"tool_name":"Edit","tool_input":{"file_path":"/home/dev/project/.env"}}' \
+    | python3 examples/ch07/url_guard.py
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "'/home/dev/project/.env' matches protected pattern '.env'."}}</code></pre>
+      </figure>
+
+      <p>
+        No API key, no logged-in session, no model. The hook is a pure function
+        of its input, which is exactly why it's a dependable security control:
+        its decision doesn't depend on what the model was persuaded to do. To
+        wire it into Claude Code, register it under <code>PreToolUse</code> with a
+        matcher:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">.claude/settings.json</figcaption>
+        <pre><code class="language-json">{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {"type": "command", "command": "python3 examples/ch07/url_guard.py"}
+        ]
+      }
+    ]
+  }
+}</code></pre>
+      </figure>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Write security hooks to fail closed. If <code>url_guard.py</code>
+          receives malformed JSON, it denies rather than letting the call through,
+          because a hook that crashes on bad input and exits nonzero would let the
+          call proceed (any exit code other than 0 or 2 lets the action run). The
+          same discipline applies to the SDK's in-process hooks: catch your own
+          exceptions, since an unhandled one can interrupt the agent. A guard that
+          errors open is worse than no guard, because you'll trust it.
+        </p>
+      </aside>
+
+      <h2>The same idea in the Python SDK</h2>
+      <p>
+        The SDK version of this hook is an in-process async callback rather than a
+        subprocess, registered with a <code>HookMatcher</code>. It receives the
+        same <code>tool_name</code> and <code>tool_input</code> and returns the
+        same <code>hookSpecificOutput</code> shape. The
+        <a href="https://code.claude.com/docs/en/agent-sdk/hooks" target="_blank" rel="noopener">documented pattern</a>
+        for blocking a protected file is:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">SDK in-process hook (Python)</figcaption>
+        <pre><code class="language-python">async def protect_env_files(input_data, tool_use_id, context):
+    file_path = input_data["tool_input"].get("file_path", "")
+    if file_path.split("/")[-1] == ".env":
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": input_data["hook_event_name"],
+                "permissionDecision": "deny",
+                "permissionDecisionReason": "Cannot modify .env files",
+            }
+        }
+    return {}
+
+
+options = ClaudeAgentOptions(
+    hooks={"PreToolUse": [HookMatcher(matcher="Write|Edit", hooks=[protect_env_files])]}
+)</code></pre>
+      </figure>
+
+      <p>
+        When several hooks fire on one event they run in parallel, and the most
+        restrictive result wins: the docs order it
+        <a href="https://code.claude.com/docs/en/agent-sdk/hooks" target="_blank" rel="noopener"><code>deny</code> over <code>defer</code> over <code>ask</code> over <code>allow</code></a>,
+        so any single <code>deny</code> blocks the call regardless of what the
+        others return. Write each hook to stand on its own rather than assuming
+        another ran first; completion order is not deterministic.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          A hook's <code>allow</code> and a permission mode's auto-approval both
+          skip the prompt, but only the mode approval can shadow
+          <code>canUseTool</code>. A hook runs at step 1 and never removes step 6
+          from the pipeline; a bare allow rule or bypass mode does. That's why the
+          shadowing fix from Chapter 4 is to move the check into a hook: the hook
+          is guaranteed to run on every call, and its deny survives every mode
+          including <code>bypassPermissions</code>.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/hooks" target="_blank" rel="noopener">Agent SDK hooks — outputs and precedence</a></p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — {{WHAT_S_ALREADY_RUNNING}}.
+        </p>
+        <p>
+          Pipe your own tool-call JSON into
+          <code>examples/ch07/url_guard.py</code> and watch the decision. Try a
+          command with two URLs where one is allowed and one isn't, and confirm
+          the whole call is denied.
+        </p>
+        <p>
+          Then open <code>challenges/ch07/challenge.py</code> and implement
+          <code>decide()</code>. Run <code>uv run pytest challenges/ch07/</code>:
+          the tests feed the function the exact JSON Claude Code sends on stdin
+          and assert on the decision, including the
+          <code>github.com.evil.com</code> lookalike and a redirect-style
+          shortener. The skeleton denies nothing until you build it.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch06.html"><span class="dir">← Previous</span>Tool-Specific Rules</a>
+        <a class="next" href="ch08.html"><span class="dir">Next →</span>Managed Settings &amp; Org Policy</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

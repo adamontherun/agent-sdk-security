@@ -7,3 +7,11 @@ __pycache__/
 .DS_Store
 infra/squid/ssl_db/
 infra/squid/certs/
+
+# Terraform (ch18/ch19 examples): provider binaries and state stay local;
+# the committed .terraform.lock.hcl pins provider versions for reproducibility.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example

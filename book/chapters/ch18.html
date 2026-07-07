@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 18 · Deploying on Amazon ECS — Agent SDK Security</title>
+<meta name="description" content="A Fargate task with no direct egress, a Squid sidecar reachable over localhost, and IAM scoped to exactly what the agent needs, written as real, validated Terraform. Chapter 18 of Agent SDK Security, Part V · Production Deployment.">
+<meta name="keywords" content="Claude Agent SDK, Amazon ECS, Fargate, Terraform, Squid sidecar, awsvpc, task role, execution role, Secrets Manager, egress proxy, least privilege, AWS Lambda MicroVMs, OpenTelemetry">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch18.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 18 · Deploying on Amazon ECS — Agent SDK Security">
+<meta property="og:description" content="A Fargate task with no direct egress, a Squid sidecar reachable over localhost, and IAM scoped to exactly what the agent needs, written as real, validated Terraform. Chapter 18 of Agent SDK Security, Part V · Production Deployment.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch18.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 18 · Deploying on Amazon ECS — Agent SDK Security">
+<meta name="twitter:description" content="A Fargate task with no direct egress, a Squid sidecar reachable over localhost, and IAM scoped to exactly what the agent needs, written as real, validated Terraform. Chapter 18 of Agent SDK Security, Part V · Production Deployment.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 18,
+  "name": "Deploying on Amazon ECS",
+  "description": "A Fargate task definition with no direct internet egress, a Squid sidecar, and IAM scoped to exactly what the agent needs.",
+  "url": "{{PAGES_URL}}chapters/ch18.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch17.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch19.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html" class="current"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 18 · Part V — Production Deployment</p>
+      <h1>Deploying on Amazon ECS</h1>
+      <p class="lede">
+        Chapter 17 said the agent runs in a container. This chapter puts that
+        container on Amazon ECS Fargate and wires it up the way this course argues
+        it should be: no direct route to the internet, a Squid egress proxy running
+        beside it as a sidecar, and two IAM roles that each hold only what they
+        need. The whole thing is real Terraform in
+        <code>examples/ch18/terraform/</code>, and it passes
+        <code>terraform validate</code> and <code>terraform fmt -check</code> against
+        Terraform 1.10.4 with the actual AWS provider. You will not deploy it here
+        (that needs an AWS account), but every resource is schema-valid and ready to
+        plan against one.
+      </p>
+
+      <h2>The architecture, and why this shape</h2>
+      <p>
+        The Agent SDK secure-deployment guide gives a five-point recipe for cloud
+        deployments: run agent containers in a private subnet with no internet
+        gateway, block all egress except to your proxy with cloud firewall rules,
+        run a proxy that enforces domain allowlists and injects credentials, assign
+        minimal IAM to the agent's service account, and log all traffic at the
+        proxy. The Terraform here implements that recipe on ECS, and the proxy is
+        the Squid you built in
+        <a href="ch15.html">chapter 15</a>.
+        <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">Those five points are quoted directly from the guide's Cloud deployments section</a>.
+      </p>
+      <p>
+        On Fargate the proxy runs as a sidecar container in the same task as the
+        agent. That works because of how Fargate does networking. Each task gets one
+        elastic network interface, and the containers in a task share a network
+        namespace, so they reach each other over loopback. The ECS documentation is
+        explicit:
+        <a href="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-security-considerations.html" target="_blank" rel="noopener">"Inside a task, containers that belong to the task can inter-communicate over localhost."</a>
+        The agent container sets <code>HTTP_PROXY=http://localhost:3128</code>, and the
+        Squid sidecar answers on that port with no service discovery involved.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          The same shared namespace that makes localhost work also means Fargate
+          cannot network-isolate one container in a task from another; they share
+          the task ENI and its security group. So the sidecar is a cooperative
+          egress point: the agent's HTTP client honors <code>HTTP_PROXY</code> and
+          sends everything to Squid, and the task security group is a coarse
+          backstop that limits which ports can leave the ENI at all. If your threat
+          model needs the proxy to be unbypassable, move it to its own task in its
+          own subnet and let the security group allow the agent egress only to the
+          proxy's address. The sidecar buys simplicity; the separate task buys
+          enforcement. This chapter ships the sidecar and flags the trade rather
+          than pretending the sidecar is airtight.
+        </p>
+        <p class="source">Source: <a href="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-task-networking.html" target="_blank" rel="noopener">Amazon ECS task networking options for Fargate</a></p>
+      </aside>
+
+      <h2>The task definition</h2>
+      <p>
+        Two containers, one task. The agent holds no credentials and points its
+        HTTP client at the sidecar; the sidecar holds the injected key and forwards
+        only allowlisted domains. The agent also waits for the proxy to report
+        healthy before it starts, so its first outbound call does not race the
+        sidecar.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch18/terraform/ecs.tf (excerpt)</figcaption>
+        <pre><code class="language-terraform">container_definitions = jsonencode([
+  {
+    name      = "agent"
+    image     = var.agent_image
+    essential = true
+
+    environment = [
+      { name = "HTTP_PROXY", value = "http://localhost:3128" },
+      { name = "HTTPS_PROXY", value = "http://localhost:3128" },
+      { name = "NO_PROXY", value = "localhost,127.0.0.1" }
+    ]
+
+    dependsOn = [
+      { containerName = "squid", condition = "HEALTHY" }
+    ]
+    # ...awslogs configuration...
+  },
+  {
+    name      = "squid"
+    image     = var.squid_image
+    essential = true
+
+    # ECS resolves this ARN at task start and injects the value into the
+    # sidecar only. The plaintext never appears in the task definition.
+    secrets = [
+      {
+        name      = "ANTHROPIC_API_KEY"
+        valueFrom = aws_secretsmanager_secret.anthropic_api_key.arn
+      }
+    ]
+    # ...healthCheck + awslogs configuration...
+  }
+])</code></pre>
+      </figure>
+
+      <p>
+        The <code>secrets</code> field is the important detail. ECS reads the Secrets
+        Manager ARN at task start and injects the value as an environment variable
+        inside the sidecar. The plaintext key never lands in the task definition
+        JSON, so it does not show up in <code>describe-task-definition</code> output,
+        in the console, or in your Terraform state as a literal. That is the
+        difference between the <code>secrets</code> field and putting the key in
+        <code>environment</code>, which the chapter 18 challenge exists to catch.
+      </p>
+
+      <h2>Two IAM roles, two jobs</h2>
+      <p>
+        ECS tasks carry two roles, and conflating them is a common way to hand the
+        agent more than it needs. The execution role belongs to the ECS agent that
+        starts the task: it pulls the image, writes logs, and resolves the secret
+        ARN. The task role belongs to the code running inside the container. Keeping
+        them separate means the permissions the platform needs to launch the task
+        are never granted to the process the agent runs.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch18/terraform/iam.tf (excerpt)</figcaption>
+        <pre><code class="language-terraform"># Execution role reads exactly one secret, scoped to its ARN — not
+# secretsmanager:* on "*".
+data "aws_iam_policy_document" "execution_secrets" {
+  statement {
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.anthropic_api_key.arn]
+  }
+}
+
+# Task role: credentials reach the agent through the proxy, so the agent's own
+# process needs no AWS access. The role exists but carries no policies. Least
+# privilege here is an empty policy set, not a broad one.
+resource "aws_iam_role" "task" {
+  name               = "${var.name}-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
+}</code></pre>
+      </figure>
+
+      <p>
+        A task role with no attached policies looks wrong the first time you write
+        it, and it is exactly right here. The agent gets its Anthropic access through
+        the sidecar, not through an AWS credential, so there is nothing the task role
+        needs to grant. If a later feature needs the agent to read one S3 object,
+        that one action gets added to this role and nothing else does.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Fargate already removes several sharp edges for you. Each task runs on
+          isolated infrastructure and does not share network interfaces, storage,
+          CPU, or memory with other tasks; privileged containers are not available;
+          and capabilities like <code>CAP_SYS_ADMIN</code> and <code>CAP_NET_ADMIN</code>
+          are restricted to prevent privilege escalation. Neither you nor an AWS
+          operator can connect to the host running the workload. You still owe the
+          network and IAM controls above, but the container-escape surface is
+          smaller than on self-managed EC2.
+        </p>
+        <p class="source">Source: <a href="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-security-considerations.html" target="_blank" rel="noopener">Fargate security considerations for Amazon ECS</a></p>
+      </aside>
+
+      <h2>Validating the HCL</h2>
+      <p>
+        The point of writing this as Terraform is that a machine checks it. From
+        <code>examples/ch18/terraform/</code>, <code>terraform init</code> installed
+        the real AWS provider (v5.100.0), and both the format check and the schema
+        validation pass:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">terraform fmt -check &amp;&amp; terraform validate</figcaption>
+        <pre><code class="language-text">$ terraform init -backend=false
+- Installing hashicorp/aws v5.100.0...
+Terraform has been successfully initialized!
+
+$ terraform fmt -check
+$ echo $?
+0
+
+$ terraform validate
+Success! The configuration is valid.</code></pre>
+      </figure>
+
+      <p>
+        This is syntax and schema validation, not a live deployment. It confirms the
+        resources reference real arguments with the right types and that the graph
+        wires together, which is what catches the class of mistakes that would
+        otherwise surface halfway through an <code>apply</code>. Running an actual
+        <code>plan</code> or <code>apply</code> needs AWS credentials and is out of
+        scope for the course build.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — Terraform and the AWS CLI are already installed, and validation needs no AWS credentials.
+        </p>
+        <p>
+          From <code>examples/ch18/terraform/</code>, run
+          <code>terraform init -backend=false</code>, then
+          <code>terraform fmt -check</code> and <code>terraform validate</code>.
+          Read <code>network.tf</code> to see the egress-restricted security group,
+          <code>iam.tf</code> for the two roles, and <code>ecs.tf</code> for the
+          sidecar wiring. The Squid image is built from
+          <code>examples/ch18/squid/</code>.
+        </p>
+        <p>
+          Then implement <code>audit_task_definition</code> in
+          <code>challenges/ch18/challenge.py</code>: it flags a task definition that
+          shares one role for both jobs, runs a privileged container, or puts a
+          secret in plaintext <code>environment</code> instead of the
+          <code>secrets</code> field. Check it with
+          <code>uv run pytest challenges/ch18</code>, then
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch18</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch17.html"><span class="dir">← Previous</span>Hosting the Agent SDK</a>
+        <a class="next" href="ch19.html"><span class="dir">Next →</span>Deploying on AWS Lambda MicroVMs</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

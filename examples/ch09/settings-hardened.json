@@ -1,0 +1,26 @@
+{
+  "//": "A worked sandbox settings.json for chapter 9. Every key here is from https://code.claude.com/docs/en/sandboxing. Drop the // comment keys before use; JSON has no comments and Claude Code will reject them.",
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "allowWrite": ["~/.kube", "/tmp/build"],
+      "denyRead": ["~/"],
+      "allowRead": ["."]
+    },
+    "credentials": {
+      "files": [
+        { "path": "~/.aws/credentials", "mode": "deny" },
+        { "path": "~/.ssh", "mode": "deny" }
+      ],
+      "envVars": [
+        { "name": "GITHUB_TOKEN", "mode": "deny" },
+        { "name": "NPM_TOKEN", "mode": "deny" }
+      ]
+    },
+    "network": {
+      "allowedDomains": ["registry.npmjs.org", "*.github.com"]
+    }
+  }
+}

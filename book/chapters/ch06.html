@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 6 · Tool-Specific Rules: Bash, Files, Web, MCP — Agent SDK Security</title>
+<meta name="description" content="Writing permission rules that hold: Bash wildcard word boundaries and compound-command handling, gitignore-style path anchoring, WebFetch domain matching, MCP and subagent rules, and the curl-by-URL rule that looks safe but isn't. Chapter 6 of Agent SDK Security, Part II.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, permission rules, Bash wildcards, word boundary, compound commands, gitignore path anchoring, WebFetch domain, MCP rules, subagent rules, curl filtering">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch06.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 6 · Tool-Specific Rules: Bash, Files, Web, MCP — Agent SDK Security">
+<meta property="og:description" content="Bash wildcard word boundaries, gitignore-style path anchoring, WebFetch domain matching, and the curl-by-URL rule that looks safe but isn't.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch06.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 6 · Tool-Specific Rules: Bash, Files, Web, MCP — Agent SDK Security">
+<meta name="twitter:description" content="Bash wildcard word boundaries, gitignore-style path anchoring, WebFetch domain matching, and the curl-by-URL rule that looks safe but isn't.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 6,
+  "name": "Tool-Specific Rules: Bash, Files, Web, MCP",
+  "description": "Writing rules that hold up: wildcard semantics, path anchoring, domain matching, and the ones that look safe but aren't.",
+  "url": "{{PAGES_URL}}chapters/ch06.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch05.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch07.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html" class="current"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 6 · Part II — Permissions &amp; Settings</p>
+      <h1>Tool-Specific Rules: Bash, Files, Web, MCP</h1>
+      <p class="lede">
+        A permission rule is a small pattern-matching language, and every tool
+        speaks a slightly different dialect of it. Bash rules match command
+        strings with word-boundary wildcards; Read and Edit rules follow
+        gitignore anchoring; WebFetch matches hostnames with a rule about
+        crossing dots. Get a dialect wrong and you write a rule that looks like a
+        boundary but leaks. This is the densest chapter in the part, so it leans
+        on tables and worked matches, and it ends with a challenge that makes you
+        implement the Bash matcher yourself.
+      </p>
+
+      <h2>Bash: the space before the star</h2>
+      <p>
+        Bash rules match with <code>*</code> wildcards that can appear anywhere
+        in the command. The subtlety that trips everyone is the word boundary. As
+        the docs put it,
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">the space before <code>*</code> matters: <code>Bash(ls *)</code> matches <code>ls -la</code> but not <code>lsof</code>, while <code>Bash(ls*)</code> matches both</a>.
+        A trailing <code>" *"</code> requires the prefix to be followed by a space
+        or the end of the string, so it can't spill into a longer command name.
+        Drop the space and you've written a prefix match that also grants
+        <code>lsof</code>, <code>lscpu</code>, and anything else starting with
+        <code>ls</code>. The <code>:*</code> suffix is an equivalent way to write
+        the trailing wildcard, so <code>Bash(ls:*)</code> and
+        <code>Bash(ls *)</code> mean the same thing.
+      </p>
+      <table>
+        <thead><tr><th>Rule</th><th>Matches</th><th>Does not match</th></tr></thead>
+        <tbody>
+          <tr><td><code>Bash(ls *)</code></td><td><code>ls -la</code>, <code>ls</code></td><td><code>lsof</code></td></tr>
+          <tr><td><code>Bash(ls*)</code></td><td><code>ls -la</code>, <code>lsof</code></td><td>—</td></tr>
+          <tr><td><code>Bash(git * main)</code></td><td><code>git checkout main</code>, <code>git push origin main</code></td><td><code>git checkout dev</code></td></tr>
+          <tr><td><code>Bash(* --version)</code></td><td><code>python --version</code></td><td><code>python --help</code></td></tr>
+          <tr><td><code>Bash(npm run build)</code></td><td><code>npm run build</code></td><td><code>npm run build --prod</code></td></tr>
+        </tbody>
+      </table>
+
+      <h2>Compound commands and process wrappers</h2>
+      <p>
+        Claude Code is aware of shell operators, so a rule doesn't leak across a
+        <code>&amp;&amp;</code>. The
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">recognized separators</a>
+        are <code>&amp;&amp;</code>, <code>||</code>, <code>;</code>,
+        <code>|</code>, <code>|&amp;</code>, <code>&amp;</code>, and newlines, and
+        a rule must match each subcommand independently. This is the difference
+        between a rule and a bypass. <code>Bash(git status)</code> does not
+        authorize <code>git status &amp;&amp; rm -rf /</code>, because the
+        <code>rm -rf /</code> half was never matched by anything.
+      </p>
+      <p>
+        Before matching, Claude Code strips a fixed set of process wrappers, so
+        <code>Bash(npm test *)</code> also matches
+        <code>timeout 30 npm test</code>. The
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">stripped wrappers</a>
+        are <code>timeout</code>, <code>time</code>, <code>nice</code>,
+        <code>nohup</code>, and <code>stdbuf</code>, plus bare <code>xargs</code>
+        with no flags. The list is built in and not configurable, and it
+        deliberately excludes environment runners like <code>npx</code>,
+        <code>docker exec</code>, and <code>devbox run</code>. Those execute
+        their arguments as a command, so a rule like
+        <code>Bash(devbox run *)</code> would match
+        <code>devbox run rm -rf .</code>. If you allow work inside a runner, name
+        the inner command too: <code>Bash(devbox run npm test)</code>.
+      </p>
+
+      <h2>The curl-by-URL rule that looks safe but isn't</h2>
+      <p>
+        Here is the rule people write and shouldn't. You want to let the agent
+        fetch from GitHub, so you write <code>Bash(curl http://github.com/ *)</code>
+        and feel covered. You aren't. The docs list the variations that slip
+        past it, and they're not exotic:
+      </p>
+      <table>
+        <thead><tr><th>Variation</th><th>Why the rule misses it</th></tr></thead>
+        <tbody>
+          <tr><td><code>curl -X GET http://github.com/...</code></td><td>An option sits before the URL, so the prefix doesn't match.</td></tr>
+          <tr><td><code>curl https://github.com/...</code></td><td>Different protocol.</td></tr>
+          <tr><td><code>curl -L http://bit.ly/xyz</code></td><td>A redirect that lands on GitHub, or anywhere else.</td></tr>
+          <tr><td><code>URL=http://github.com &amp;&amp; curl $URL</code></td><td>The URL is in a variable, not the literal command.</td></tr>
+          <tr><td><code>curl&nbsp;&nbsp;http://github.com</code></td><td>Extra whitespace breaks the exact prefix.</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The docs are blunt that
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">Bash permission patterns that try to constrain command arguments are fragile</a>,
+        and they recommend a different shape entirely. Block the network tools
+        with deny rules, <code>Bash(curl:*)</code> and <code>Bash(wget:*)</code>,
+        then grant the specific domains through the WebFetch tool with
+        <code>WebFetch(domain:github.com)</code>. Or validate URLs in a PreToolUse
+        hook, which sees the whole command string and can parse every URL out of
+        it. Chapter 7 builds exactly that hook. The rule of thumb: a permission
+        rule can gate a <em>command</em> reliably, but it can't gate the
+        <em>arguments</em> to a command that reaches the network.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          Allowing WebFetch to a domain does not stop Bash from reaching it. The
+          docs note that if Bash is allowed, Claude can still use
+          <code>curl</code> or <code>wget</code> to hit any URL. The two tools
+          are gated separately. To actually confine egress you need both the
+          Bash deny rules and, ultimately, a network boundary the agent can't
+          route around, which is Part IV.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">Configure permissions — Bash argument fragility</a></p>
+      </aside>
+
+      <h2>Read and Edit: four ways to anchor a path</h2>
+      <p>
+        File rules follow the
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">gitignore specification</a>,
+        with four anchor styles that resolve to very different places. The one
+        that catches people is the single leading slash: it is <em>not</em> an
+        absolute path.
+      </p>
+      <table>
+        <thead><tr><th>Pattern</th><th>Anchor</th><th>Example resolves to</th></tr></thead>
+        <tbody>
+          <tr><td><code>//path</code></td><td>Filesystem root</td><td><code>Read(//Users/alice/secrets/**)</code> → <code>/Users/alice/secrets/**</code></td></tr>
+          <tr><td><code>~/path</code></td><td>Home directory</td><td><code>Read(~/Documents/*.pdf)</code> → home <code>/Documents/*.pdf</code></td></tr>
+          <tr><td><code>/path</code></td><td>The settings file's own location</td><td><code>Edit(/src/**)</code> in project settings → <code>&lt;project root&gt;/src/**</code></td></tr>
+          <tr><td><code>path</code> or <code>./path</code></td><td>Current directory</td><td><code>Read(*.env)</code> → <code>&lt;cwd&gt;/*.env</code></td></tr>
+        </tbody>
+      </table>
+      <p>
+        A single-slash <code>/path</code> anchors at whatever settings file
+        defines it, which is why a deny rule like <code>Read(/secrets/**)</code>
+        written in user settings blocks <code>~/.claude/secrets/**</code>, not a
+        <code>secrets</code> directory in your project. To write a user-settings
+        rule that applies inside every project, use a <code>//</code> absolute
+        path or a <code>~/</code> home-relative one. Bare filenames match at any
+        depth, so <code>Read(.env)</code> and <code>Read(**/.env)</code> are
+        equivalent and block every <code>.env</code> at or under the current
+        directory.
+      </p>
+      <p>
+        Read and Edit deny rules reach further than the built-in tools. They also
+        apply to file commands Claude Code recognizes in Bash, like
+        <code>cat</code>, <code>head</code>, <code>tail</code>, and
+        <code>sed</code>. They do <em>not</em> apply to arbitrary subprocesses, so
+        a Python or Node script that opens a file itself slips past them. For a
+        boundary that holds against any process, the docs point at the sandbox,
+        which is Part III.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          Symlinks are checked twice, and allow and deny rules treat the pair
+          asymmetrically. An <strong>allow</strong> rule applies only when both
+          the symlink path and its target match, so a symlink inside an allowed
+          directory that points outside it still prompts. A <strong>deny</strong>
+          rule applies when <em>either</em> the link or its target matches, so a
+          symlink pointing at a denied file is itself denied. With
+          <code>Read(./project/**)</code> allowed and <code>Read(~/.ssh/**)</code>
+          denied, a link at <code>./project/key</code> pointing to
+          <code>~/.ssh/id_rsa</code> is blocked: the target fails the allow and
+          matches the deny. The asymmetry is deliberate, and it favours safety.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">Configure permissions — Read and Edit symlinks</a></p>
+      </aside>
+
+      <h2>WebFetch: a wildcard can't cross a dot</h2>
+      <p>
+        WebFetch rules match against the hostname of the requested URL with a
+        <code>domain:</code> prefix. The security-relevant rule is how far a
+        wildcard reaches. A leading <code>*.</code> matches subdomains at any
+        depth, so <code>WebFetch(domain:*.example.com)</code> matches
+        <code>api.example.com</code> and <code>a.b.example.com</code> but not
+        <code>example.com</code> itself. In any other position, the
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">wildcard matches only the text between two dots</a>.
+        So <code>WebFetch(domain:example.*)</code> matches
+        <code>example.org</code>, where <code>*</code> becomes <code>org</code>,
+        but not <code>example.evil.com</code>, where <code>*</code> would have to
+        swallow <code>evil.com</code> and cross a dot to do it. That constraint is
+        what stops a trailing wildcard from matching an attacker-registered
+        lookalike.
+      </p>
+
+      <h2>MCP and subagent rules</h2>
+      <p>
+        MCP rules name a server, optionally with a tool. <code>mcp__puppeteer</code>
+        matches any tool from the <code>puppeteer</code> server;
+        <code>mcp__puppeteer__*</code> does the same with an explicit wildcard;
+        and <code>mcp__puppeteer__puppeteer_navigate</code> matches one tool.
+        Allow rules accept a tool-name wildcard only after a literal
+        <code>mcp__&lt;server&gt;__</code> prefix, so the server segment must be
+        glob-free. An unanchored allow glob like <code>"*"</code> or
+        <code>"mcp__*"</code> is skipped with a warning and grants nothing, though
+        as a <em>deny</em> rule <code>mcp__*</code> does remove every MCP tool.
+      </p>
+      <p>
+        Subagents get their own rule family. <code>Agent(Explore)</code> matches
+        the Explore subagent, <code>Agent(Plan)</code> the Plan subagent, and
+        <code>Agent(my-custom-agent)</code> a custom one. Put these in the deny
+        list to disable a subagent an agent shouldn't be able to spawn. Recent
+        builds also allow matching a top-level input parameter on any tool, so
+        <code>Agent(model:opus)</code> matches Agent calls that request the Opus
+        tier and <code>Bash(run_in_background:true)</code> matches backgrounded
+        Bash calls, which gives you another axis to gate on.
+      </p>
+
+      <h2>Make the matcher executable</h2>
+      <p>
+        The Bash word boundary is easy to state and easy to get wrong, so the
+        challenge for this chapter is to implement it. The reference model in
+        <code>solutions/ch06.py</code> converts a specifier to a regex, honours
+        the trailing <code>" *"</code> word boundary and the <code>:*</code>
+        suffix, and splits compound commands on the seven separators.
+        <code>examples/ch06/bash_match_demo.py</code> runs it against the cases
+        from the tables above:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">python3 examples/ch06/bash_match_demo.py</figcaption>
+        <pre><code class="language-text">single command  (rule -> command):
+  True   'ls *'         -> 'ls -la'
+  False  'ls *'         -> 'lsof'
+  True   'ls*'          -> 'lsof'
+  True   'git * main'   -> 'git push origin main'
+  False  'npm run *'    -> 'npm test'
+
+compound command  (allow rule must match every subcommand):
+  False  'git status' -> 'git status &amp;&amp; rm -rf /'
+         subcommands: ['git status', 'rm -rf /']
+  True   'git *'      -> 'git add . &amp;&amp; git commit -m x'
+         subcommands: ['git add .', 'git commit -m x']</code></pre>
+      </figure>
+
+      <p>
+        The compound cases are the payoff. <code>git status</code> refuses
+        <code>git status &amp;&amp; rm -rf /</code> because the second subcommand
+        matches nothing, while <code>git *</code> allows
+        <code>git add . &amp;&amp; git commit -m x</code> because it matches both.
+        This is a model of the documented behaviour for building intuition, not
+        Claude Code's real matcher, but it reproduces the rules that decide
+        whether your allowlist has a hole in it.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — {{WHAT_S_ALREADY_RUNNING}}.
+        </p>
+        <p>
+          Run <code>python3 examples/ch06/bash_match_demo.py</code>, then add a
+          tricky pair: does <code>Bash(rm *)</code> match
+          <code>rm -rf /tmp</code>? Does <code>Bash(rm*)</code> match
+          <code>rmdir foo</code>? Predict, then check.
+        </p>
+        <p>
+          Then open <code>challenges/ch06/challenge.py</code> and implement
+          <code>split_commands()</code>, <code>matches()</code>, and
+          <code>rule_allows()</code>. Run
+          <code>uv run pytest challenges/ch06/</code>. The parametrized suite
+          covers the word boundary, the <code>:*</code> suffix, and the
+          compound-command escape, so a matcher that ignores the space before the
+          star will fail on <code>lsof</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch05.html"><span class="dir">← Previous</span>Permission Modes Compared</a>
+        <a class="next" href="ch07.html"><span class="dir">Next →</span>Hooks as a Security Control</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

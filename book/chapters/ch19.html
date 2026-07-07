@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 19 · Deploying on AWS Lambda MicroVMs — Agent SDK Security</title>
+<meta name="description" content="The image-then-launch model, Firecracker per-session isolation, the run-microvm lifecycle CLI, and when MicroVMs beat ECS for untrusted-code agents. Chapter 19 of Agent SDK Security, Part V · Production Deployment.">
+<meta name="keywords" content="Claude Agent SDK, AWS Lambda MicroVMs, Firecracker, per-session isolation, run-microvm, create-microvm-image, X-aws-proxy-auth, Terraform, ECS, Fargate, OpenTelemetry, untrusted code">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch19.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 19 · Deploying on AWS Lambda MicroVMs — Agent SDK Security">
+<meta property="og:description" content="The image-then-launch model, Firecracker per-session isolation, the run-microvm lifecycle CLI, and when MicroVMs beat ECS for untrusted-code agents. Chapter 19 of Agent SDK Security, Part V · Production Deployment.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch19.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 19 · Deploying on AWS Lambda MicroVMs — Agent SDK Security">
+<meta name="twitter:description" content="The image-then-launch model, Firecracker per-session isolation, the run-microvm lifecycle CLI, and when MicroVMs beat ECS for untrusted-code agents. Chapter 19 of Agent SDK Security, Part V · Production Deployment.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 19,
+  "name": "Deploying on AWS Lambda MicroVMs",
+  "description": "The image-then-launch model, per-session isolation, and when it beats ECS for agent workloads.",
+  "url": "{{PAGES_URL}}chapters/ch19.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch18.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch20.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html" class="current"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 19 · Part V — Production Deployment</p>
+      <h1>Deploying on AWS Lambda MicroVMs</h1>
+      <p class="lede">
+        Chapter 18 ran the agent on ECS, where a Fargate task shares a kernel with
+        the platform underneath it. This chapter runs it on AWS Lambda MicroVMs, a
+        service that launched in June 2026 and gives every session its own
+        Firecracker microVM with no shared kernel. That is the isolation from
+        chapter 12 turned into a managed API. Because the service is new, this
+        chapter grounds each claim in the current CLI and docs rather than memory,
+        and it is honest about one gap: Terraform has no native resource for the
+        microVM itself yet, so the lifecycle runs through the
+        <code>aws lambda-microvms</code> command set, which this machine's AWS CLI
+        (2.35.15) already ships.
+      </p>
+
+      <aside class="callout watch21">
+        <span class="callout-title">⏭ Still evolving</span>
+        <p>
+          Lambda MicroVMs is weeks old at the time of writing. The specification
+          numbers, region list, and CLI flags in this chapter were re-verified
+          against the AWS CLI on this machine and current AWS pages during drafting,
+          and they matched. A service this young can still move: treat the exact
+          limits as a snapshot, and re-run <code>aws lambda-microvms &lt;cmd&gt; help</code>
+          before you build against a specific flag. Where a detail could not be
+          confirmed from this machine (the IAM service principal that assumes the
+          build and execution roles), the chapter says so rather than guessing with
+          false confidence.
+        </p>
+      </aside>
+
+      <h2>Image, then launch</h2>
+      <p>
+        Regular Lambda hands you a function and cold-starts it. MicroVMs split the
+        work into a build step and a launch step. You package your application and
+        its Dockerfile, upload the artifact to S3, and call
+        <code>create-microvm-image</code> with the S3 URI, a Lambda-managed base
+        image ARN, and a build role. What AWS does next is the interesting part:
+        <a href="https://aws.amazon.com/blogs/aws/run-isolated-sandboxes-with-full-lifecycle-control-aws-lambda-introduces-microvms/" target="_blank" rel="noopener">"Lambda runs your Dockerfile, initializes your application, and takes a Firecracker snapshot of the running environment's memory and disk state."</a>
+        Every launch from that image then resumes from the snapshot instead of
+        booting cold.
+      </p>
+      <p>
+        The <code>--code-artifact</code> argument is a tagged union whose only key is
+        <code>uri</code>, and the build is asynchronous: the image moves from
+        <code>CREATING</code> to <code>CREATED</code>, and you poll
+        <code>get-microvm-image</code> until it lands. Those are details from the
+        shipped CLI on this machine, not the announcement blog, which is the point of
+        checking the CLI before writing.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch19/scripts/lifecycle.sh (excerpt)</figcaption>
+        <pre><code class="language-bash"># Build: Lambda runs the Dockerfile and snapshots the initialized state.
+IMAGE_ID=$(aws lambda-microvms create-microvm-image \
+  --region "$REGION" \
+  --name "$NAME" \
+  --base-image-arn "$BASE_IMAGE_ARN" \
+  --build-role-arn "$BUILD_ROLE_ARN" \
+  --code-artifact "uri=$ARTIFACT_URI" \
+  --resources 'minimumMemoryInMiB=2048' \
+  --query 'imageId' --output text)
+
+# Poll until the async build reaches CREATED.
+aws lambda-microvms get-microvm-image \
+  --region "$REGION" --image-identifier "$IMAGE_ID"</code></pre>
+      </figure>
+
+      <h2>Per-session isolation is the whole pitch</h2>
+      <p>
+        The reason to reach for MicroVMs over a Fargate task is the isolation
+        boundary. AWS states it plainly:
+        <a href="https://aws.amazon.com/blogs/aws/run-isolated-sandboxes-with-full-lifecycle-control-aws-lambda-introduces-microvms/" target="_blank" rel="noopener">"Each session runs in its own dedicated MicroVM with no shared kernel and no shared resources between users, so untrusted code supplied by one user is contained to their execution environment."</a>
+        This is the Firecracker guarantee from chapter 12, now something you get from
+        an API call instead of a jailer you operate yourself.
+      </p>
+      <p>
+        That sentence is the deciding factor for one specific kind of agent: the one
+        that lets end users submit code for the agent to run. On ECS, a task's
+        containers share a kernel with the Fargate host, and multiple sessions on one
+        long-running container share that container. A guest-kernel exploit or a
+        container escape has somewhere to go. With a microVM per session, a user's
+        untrusted code sees a kernel that is theirs alone, and breaking out means
+        breaking the hypervisor, not a namespace.
+      </p>
+
+      <h2>The lifecycle: run, suspend, resume</h2>
+      <p>
+        <code>run-microvm</code> launches a microVM from an image; it starts in
+        <code>PENDING</code> and moves to <code>RUNNING</code>. Two flags carry the
+        cost and safety controls. An <code>--idle-policy</code> auto-suspends the
+        microVM after an idle window and can auto-resume it on the next request, and
+        <code>--maximum-duration-in-seconds</code> caps the total runtime. The CLI
+        gives the cap a precise bound: valid range 1 to 28,800 seconds, which is the
+        8-hour platform maximum. Suspend preserves full memory and disk state; resume
+        restores it.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch19/scripts/lifecycle.sh (excerpt)</figcaption>
+        <pre><code class="language-bash"># Launch. Auto-suspend after 15 min idle, auto-resume on request,
+# runtime capped at the 8-hour maximum (28,800 s).
+MICROVM_ID=$(aws lambda-microvms run-microvm \
+  --region "$REGION" \
+  --image-identifier "$IMAGE_ID" \
+  --execution-role-arn "$EXEC_ROLE_ARN" \
+  --idle-policy 'maxIdleDurationSeconds=900,suspendedDurationSeconds=300,autoResumeEnabled=true' \
+  --maximum-duration-in-seconds 28800 \
+  --query 'microvmId' --output text)
+
+# Suspend when idle to stop paying for compute while keeping state.
+# aws lambda-microvms suspend-microvm --microvm-identifier "$MICROVM_ID"
+# aws lambda-microvms resume-microvm  --microvm-identifier "$MICROVM_ID"</code></pre>
+      </figure>
+
+      <p>
+        The idle policy maps well onto the hybrid session pattern from chapter 17.
+        An agent that sits idle between user check-ins suspends, stops billing for
+        compute, and resumes with its transcript and process state intact when the
+        next request arrives. You get the pause-and-resume behavior without wiring up
+        a <code>SessionStore</code>, because the microVM snapshot is the state.
+      </p>
+
+      <h2>Reaching the microVM: short-lived tokens</h2>
+      <p>
+        A running microVM is not on the open internet. To talk to it you mint a
+        short-lived token with <code>create-microvm-auth-token</code>, scoped to
+        specific ports and expiring in at most 60 minutes, then attach it to a plain
+        HTTPS request in the <code>X-aws-proxy-auth</code> header. The token, not a
+        security group, is what gates access, which suits a per-session model where
+        sessions come and go faster than firewall rules would.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch19/scripts/lifecycle.sh (excerpt)</figcaption>
+        <pre><code class="language-bash">TOKEN=$(aws lambda-microvms create-microvm-auth-token \
+  --region "$REGION" \
+  --microvm-identifier "$MICROVM_ID" \
+  --expiration-in-minutes 15 \
+  --allowed-ports 'port=8080' \
+  --query 'token' --output text)
+
+curl --header "X-aws-proxy-auth: $TOKEN" "https://${ENDPOINT}/health"</code></pre>
+      </figure>
+
+      <h2>Specs and limits at launch</h2>
+      <p>
+        These numbers were re-verified during drafting against the AWS CLI on this
+        machine and current AWS pages. They agree with the launch announcement.
+      </p>
+
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Property</th><th>At launch</th></tr></thead>
+        <tbody>
+          <tr><td>Regions</td><td>US East (N. Virginia, Ohio), US West (Oregon), Europe (Ireland), Asia Pacific (Tokyo)</td></tr>
+          <tr><td>Architecture</td><td>ARM64 (AWS Graviton), no x86 option at launch</td></tr>
+          <tr><td>Per-microVM ceiling</td><td>Up to 16 vCPUs, 32 GB memory, 32 GB disk</td></tr>
+          <tr><td>Maximum runtime</td><td>8 hours total (<code>--maximum-duration-in-seconds</code> range 1–28,800)</td></tr>
+          <tr><td>Auth token lifetime</td><td>At most 60 minutes, scoped to allowed ports</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="source">Sources:
+        <a href="https://aws.amazon.com/lambda/lambda-microvms/" target="_blank" rel="noopener">AWS Lambda MicroVMs product page</a>,
+        <a href="https://aws.amazon.com/blogs/aws/run-isolated-sandboxes-with-full-lifecycle-control-aws-lambda-introduces-microvms/" target="_blank" rel="noopener">launch announcement</a>,
+        and <code>aws lambda-microvms run-microvm help</code> (aws-cli 2.35.15).
+      </p>
+
+      <h2>Terraform has no resource for this yet</h2>
+      <p>
+        You would reasonably want to declare a microVM image the way chapter 18
+        declared an ECS task. You cannot, at least not yet. The AWS provider that
+        <code>terraform init</code> installed for this course (v5.100.0) exposes 1,526
+        resources, and none of them match <code>microvm</code>:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">checking the provider for a native resource</figcaption>
+        <pre><code class="language-text">$ terraform providers schema -json \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); \
+      s=d['provider_schemas']['registry.terraform.io/hashicorp/aws']['resource_schemas']; \
+      print('microvm resources:', [k for k in s if 'microvm' in k.lower()]); \
+      print('total aws resources:', len(s))"
+microvm resources: []
+total aws resources: 1526</code></pre>
+      </figure>
+
+      <p>
+        That is expected for a service this new, and pretending otherwise would be
+        the mistake. So the split is deliberate: Terraform manages the surrounding
+        pieces it does have resources for (the S3 bucket for the code artifact, the
+        build and execution IAM roles), and the microVM image and lifecycle run
+        through the CLI in <code>examples/ch19/scripts/lifecycle.sh</code>. The
+        Terraform in <code>examples/ch19/terraform/</code> validates the same way
+        chapter 18's does.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          The service principal that assumes the build and execution roles is not
+          stated in the launch materials, and it cannot be confirmed from this
+          machine without live API access. The Terraform uses
+          <code>lambda.amazonaws.com</code> as a working assumption and says so in a
+          comment. Confirm it against the current IAM docs before an
+          <code>apply</code>, and tighten the trust policy with an
+          <code>aws:SourceArn</code> condition once you know the account and image
+          ARNs. Do not ship a trust policy you have not verified.
+        </p>
+      </aside>
+
+      <h2>When MicroVMs beat ECS for this course's threat model</h2>
+      <p>
+        Both targets can run the same hardened agent behind the same egress proxy.
+        The deciding question is what the sessions contain. If your agent processes
+        your own content and the tenants are your own application's users,
+        chapter 18's ECS deployment is simpler to operate and the shared kernel is an
+        acceptable risk. If your agent runs code that end users supply, so one
+        session is genuinely hostile to another, the per-session microVM boundary is
+        worth the extra moving parts. AWS positions the service for exactly that
+        case, and the sentence about no shared kernel between users is the reason.
+        A shell-in-a-box product, a data-science notebook that executes arbitrary
+        user code, a coding agent that runs whatever a customer pastes: these are the
+        workloads where a container namespace is not the boundary you want, and a
+        microVM is.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the AWS CLI and Terraform are installed; <code>help</code> output and HCL validation need no credentials.
+        </p>
+        <p>
+          Confirm the CLI reality yourself: <code>aws lambda-microvms run-microvm help</code>
+          shows the <code>--idle-policy</code> and <code>--maximum-duration-in-seconds</code>
+          flags this chapter uses. Then validate the surrounding infrastructure from
+          <code>examples/ch19/terraform/</code> with
+          <code>terraform init -backend=false</code> and <code>terraform validate</code>.
+          Read <code>examples/ch19/scripts/lifecycle.sh</code> for the full lifecycle.
+        </p>
+        <p>
+          Then implement <code>build_run_request</code> in
+          <code>challenges/ch19/challenge.py</code>, which validates a
+          <code>run-microvm</code> body against the real CLI limits (the 8-hour cap,
+          the 60-second idle floor) before it reaches AWS. Check with
+          <code>uv run pytest challenges/ch19</code>, then
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch19</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch18.html"><span class="dir">← Previous</span>Deploying on Amazon ECS</a>
+        <a class="next" href="ch20.html"><span class="dir">Next →</span>Observability and Audit</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

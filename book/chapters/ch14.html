@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 14 · The Proxy Pattern — Agent SDK Security</title>
+<meta name="description" content="Why a credential the agent never holds is a credential it can never leak: the proxy pattern, ANTHROPIC_BASE_URL vs HTTP_PROXY, custom tools vs TLS-terminating traffic forwarding. Chapter 14 of Agent SDK Security, Part IV · Credentials &amp; the Network Boundary.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, AI agent security, credential injection, egress proxy, ANTHROPIC_BASE_URL, HTTP_PROXY, TLS interception, Squid proxy, least privilege">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch14.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 14 · The Proxy Pattern — Agent SDK Security">
+<meta property="og:description" content="Why a credential the agent never holds is a credential it can never leak: the proxy pattern and how to route an agent's traffic through it.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch14.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 14 · The Proxy Pattern — Agent SDK Security">
+<meta name="twitter:description" content="Why a credential the agent never holds is a credential it can never leak: the proxy pattern and how to route an agent's traffic through it.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 14,
+  "name": "The Proxy Pattern",
+  "description": "Why a credential the agent never holds is a credential it can never leak.",
+  "url": "{{PAGES_URL}}chapters/ch14.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch13.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch15.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html" class="current"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 14 · Part IV — Credentials &amp; the Network Boundary</p>
+      <h1>The Proxy Pattern</h1>
+      <p class="lede">
+        An agent needs credentials to be useful: a GitHub token to push, an API
+        key to call a service, cloud keys to read a bucket. The moment one of
+        those secrets sits in the agent's environment, it is one prompt
+        injection away from being read back to an attacker. This chapter is
+        about the move that takes the secret off the table entirely. You put a
+        proxy between the agent and the network, the proxy holds the
+        credential, and the agent sends requests that carry none. A credential
+        the agent never holds is a credential it can never leak.
+      </p>
+
+      <h2>The security boundary, applied to a secret</h2>
+      <p>
+        Chapter 3 introduced the idea of a security boundary: a line between
+        components that trust each other differently, drawn so that a failure
+        on one side does not become a failure on the other. Credentials are
+        where that idea pays off most directly. The Agent SDK guide frames it
+        as putting sensitive resources outside the boundary that contains the
+        agent, so that if something goes wrong in the agent's environment, the
+        resources outside stay protected.
+      </p>
+      <p>
+        The
+        <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">secure-deployment guide</a>
+        gives the canonical example: rather than handing an agent an API key,
+        run a proxy outside the agent's environment that injects the key into
+        requests. The agent can make the API call. It never sees the key. That
+        is the whole pattern, and the rest of this chapter is about the
+        mechanics of making an agent's traffic actually go through such a proxy,
+        and the two rather different ways to handle Anthropic's own API versus
+        every other service.
+      </p>
+
+      <h2>What the proxy buys you</h2>
+      <p>
+        A proxy that sits on the credential is doing four jobs at once, and each
+        one is a control you would otherwise have to build separately. The agent
+        never sees the actual credential, so a leak of the agent's environment
+        leaks nothing useful. The proxy enforces an allowlist of permitted
+        endpoints, so a request aimed at an attacker's server never leaves.
+        Every request passes through one place that can log it for audit. And
+        the secret lives in exactly one location you can rotate, rather than
+        being copied into every agent's environment. The
+        <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">guide</a>
+        lists these as the benefits of the pattern, and they compound: the same
+        box that hides the credential also decides where traffic is allowed to
+        go.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          The hardened container from chapter 10 runs with
+          <code>--network none</code> and reaches the outside world only through
+          a mounted Unix socket wired to a proxy on the host. The proxy pattern
+          is what makes that topology useful: with no network interface of its
+          own, the agent literally cannot address a server the proxy will not
+          forward to. Injecting a credential at that same proxy is a small
+          addition to a boundary you have already drawn.
+        </p>
+      </aside>
+
+      <h2>Pointing Claude Code at a proxy</h2>
+      <p>
+        There are two ways to route the agent's traffic, and they are not
+        interchangeable. The first is specific to Anthropic's sampling API and
+        gives your proxy plaintext to work with. The second is the standard
+        system-wide proxy mechanism and, for HTTPS, hands your proxy an opaque
+        tunnel it cannot read without extra work.
+      </p>
+      <p>
+        <code>ANTHROPIC_BASE_URL</code> tells Claude Code and the Agent SDK to
+        send sampling requests somewhere other than the Claude API directly.
+        Your proxy receives plaintext HTTP, so it can inspect the request,
+        inject the real API key, and forward it on. This is the simple path, and
+        the reason it is simple is that it only covers requests to the model.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">route sampling requests through your proxy</figcaption>
+        <pre><code class="language-bash"># Only affects Claude API sampling traffic. Plaintext to your proxy by design,
+# so the proxy can read and rewrite it (for example, add the Authorization header).
+export ANTHROPIC_BASE_URL="http://localhost:8080"
+</code></pre>
+      </figure>
+      <p>
+        <code>HTTP_PROXY</code> and <code>HTTPS_PROXY</code> are the standard
+        environment variables, and Claude Code respects them for all HTTP
+        traffic. The catch is TLS. For an HTTPS destination the client opens an
+        encrypted <code>CONNECT</code> tunnel through the proxy, and, as the
+        guide puts it, the proxy cannot see or modify the request contents
+        without TLS interception. It can see the hostname and decide whether to
+        allow the connection. It cannot read or change what flows inside.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">route all HTTP(S) traffic through your proxy</figcaption>
+        <pre><code class="language-bash"># System-wide. For HTTPS the proxy sees an opaque CONNECT tunnel: it can
+# allow or deny by hostname, but cannot inject a credential inside the tunnel
+# unless it terminates the TLS itself (chapter 15).
+export HTTP_PROXY="http://localhost:8080"
+export HTTPS_PROXY="http://localhost:8080"
+</code></pre>
+      </figure>
+
+      <h2>Credentials for services that are not the Claude API</h2>
+      <p>
+        Sampling is the easy case because <code>ANTHROPIC_BASE_URL</code> gives
+        the proxy plaintext. Every other authenticated service the agent
+        touches, a git remote, a package registry, an internal API, speaks TLS
+        end to end, and routing it through <code>HTTPS_PROXY</code> only gets the
+        proxy an opaque tunnel. The guide describes two ways out, and they trade
+        off cleanly against each other.
+      </p>
+      <p>
+        The first is a custom tool. You expose the capability through an MCP
+        server or custom tool whose implementation runs outside the agent's
+        boundary and makes the authenticated request there. The agent calls the
+        tool; the credential is added on the far side of the boundary; the agent
+        only ever sees the tool interface. A git MCP server that forwards
+        commands to a git proxy on the host is the guide's example. The appeal
+        is that nothing has to decrypt anyone's TLS: the service outside the
+        boundary makes its own authenticated connection, and the credential
+        simply never crosses into the agent.
+      </p>
+      <p>
+        The second is traffic forwarding, and it is the heavier option. To
+        modify arbitrary HTTPS without writing a custom tool, you run a
+        TLS-terminating proxy that decrypts the traffic, inspects or rewrites
+        it, then re-encrypts it before forwarding. The
+        <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">guide</a>
+        spells out the cost: you run the proxy outside the container, you install
+        the proxy's CA certificate in the agent's trust store so the agent
+        trusts the certificates the proxy presents, and you point
+        <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code> at it. This handles any
+        HTTP-based service without per-service code, at the price of managing a
+        certificate authority and decrypting traffic that was encrypted for a
+        reason. Chapter 15 builds exactly this, with Squid, and does not gloss
+        over what decrypting someone's TLS actually means.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          Setting <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code> does not
+          guarantee a program honors them. curl, pip, npm, and git do, but some
+          runtimes connect directly. Node.js <code>fetch()</code> ignores these
+          variables by default; on Node 24 and later you enable support with
+          <code>NODE_USE_ENV_PROXY=1</code>. For coverage that does not depend on
+          each tool cooperating, the guide points to
+          <a href="https://github.com/haad/proxychains" target="_blank" rel="noopener">proxychains</a>
+          to intercept network calls, or iptables to redirect outbound traffic
+          into a transparent proxy the client never had to be told about.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">Securely deploying AI agents — Credential management</a></p>
+      </aside>
+
+      <h2>Which proxy</h2>
+      <p>
+        The guide names four proxies you can build on rather than writing your
+        own. <a href="https://www.envoyproxy.io/" target="_blank" rel="noopener">Envoy</a>
+        is a production-grade proxy whose <code>credential_injector</code> filter
+        adds auth headers.
+        <a href="https://mitmproxy.org/" target="_blank" rel="noopener">mitmproxy</a>
+        is a TLS-terminating proxy built for inspecting and modifying HTTPS.
+        <a href="http://www.squid-cache.org/" target="_blank" rel="noopener">Squid</a>
+        is a caching proxy with a mature access-control-list system.
+        <a href="https://github.com/BerriAI/litellm" target="_blank" rel="noopener">LiteLLM</a>
+        is an LLM gateway with credential injection and rate limiting. Any of
+        them can hold a credential the agent does not. The next chapter builds
+        the Squid path start to finish, because its ACL model maps directly onto
+        the allowlist-then-inject shape this pattern wants, and because it runs
+        the same way in your lab as it will in the ECS sidecar of chapter 18.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the repo and Python environment are already set up.
+        </p>
+        <p>
+          Run <code>python3 examples/ch14/inject_demo.py</code>. It stands up a
+          mock upstream and an injecting proxy on localhost, sends one request
+          through the proxy with no <code>Authorization</code> header, and prints
+          what the upstream received. The client sends nothing; the upstream
+          sees the injected credential. That is the entire pattern in stdlib,
+          before Squid makes it real in the next chapter.
+        </p>
+        <p>
+          Then open <code>challenges/ch14/</code> and implement
+          <code>proxy_pattern_prevents</code> so the tests pass:
+          <code>uv run pytest challenges/ch14</code>. You are deciding, for a set
+          of exposure scenarios, whether the two mechanisms of the pattern,
+          removing the secret from the agent and blocking egress, actually stop
+          the leak, and finding the one case where they do not.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch13.html"><span class="dir">← Previous</span>Choosing an Isolation Strategy</a>
+        <a class="next" href="ch15.html"><span class="dir">Next →</span>Squid, Hands-On</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

@@ -1,17 +1,34 @@
-# Backs the Part III/IV hands-on labs: a real Squid egress proxy and the
-# network topology a hardened agent container talks through. Not needed for
-# Parts I, II, or V, whose examples are plain Python or IaC dry runs.
+# The Part IV hands-on lab: a real Squid egress proxy an agent talks through,
+# plus a local echo service that stands in for an authenticated upstream API.
 #
-# Chapter 15 replaces infra/squid/squid.conf with a real allowlisting,
-# TLS-inspecting configuration; this file's job is just to prove the
-# container/network plumbing works before content gets built on top of it.
+# The squid service is built from infra/squid/Dockerfile (Alpine's OpenSSL
+# build of Squid, which — unlike the GnuTLS ubuntu/squid image — ships the
+# security_file_certgen helper that TLS bumping needs; see chapter 15).
+# infra/squid/squid.conf is the live config; chapter 15 evolves it from a bare
+# allowlist to a bumping, credential-injecting proxy. The labeled variants
+# under examples/ch15/ are the snapshots at each step.
+#
+# Before first run: `sh infra/squid/gen-ca.sh` to mint the proxy CA into
+# infra/squid/certs/ (gitignored — it holds the key that makes interception
+# possible).
 services:
   squid:
-    image: ubuntu/squid:6.6-24.04_beta
+    build: ./infra/squid
     ports:
       - "3128:3128"
     volumes:
       - ./infra/squid/squid.conf:/etc/squid/squid.conf:ro
+      - ./infra/squid/certs:/etc/squid/certs:ro
+    networks:
+      - lab
+
+  # Stands in for an upstream API that expects an Authorization header. It
+  # echoes back the request it received (headers included), which is how
+  # chapter 15 proves the proxy injected a credential the client never sent.
+  # No ports are published: it is reachable only from inside the lab network,
+  # as "mock-api", exactly like a private-subnet backend.
+  mock-api:
+    image: kennethreitz/httpbin
     networks:
       - lab
 

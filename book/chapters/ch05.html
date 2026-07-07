@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 5 · Permission Modes Compared — Agent SDK Security</title>
+<meta name="description" content="default, acceptEdits, plan, auto, dontAsk, and bypassPermissions: what each mode auto-approves exactly, the bypass circuit breaker, subagent inheritance, and when bypassPermissions is actually safe. Chapter 5 of Agent SDK Security, Part II · Permissions & Settings.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, permission modes, acceptEdits, bypassPermissions, dontAsk, plan mode, subagent inheritance, circuit breaker, least privilege">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch05.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 5 · Permission Modes Compared — Agent SDK Security">
+<meta property="og:description" content="What each permission mode auto-approves exactly, the bypass circuit breaker, subagent inheritance, and when bypassPermissions is actually safe.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch05.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 5 · Permission Modes Compared — Agent SDK Security">
+<meta name="twitter:description" content="What each permission mode auto-approves exactly, the bypass circuit breaker, subagent inheritance, and when bypassPermissions is actually safe.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 5,
+  "name": "Permission Modes Compared",
+  "description": "default, acceptEdits, plan, auto, dontAsk, bypassPermissions — what each one actually auto-approves, and where it's safe to use them.",
+  "url": "{{PAGES_URL}}chapters/ch05.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch04.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch06.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html" class="current"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 5 · Part II — Permissions &amp; Settings</p>
+      <h1>Permission Modes Compared</h1>
+      <p class="lede">
+        A permission mode is a single setting that changes what step 4 of the
+        pipeline does to every unresolved tool call. The names sound
+        self-explanatory, which is the danger: acceptEdits accepts more than
+        edits, bypassPermissions doesn't bypass everything, and both propagate to
+        subagents in ways that surprise people. This chapter pins down what each
+        mode auto-approves to the exact command, and answers the question that
+        actually matters for a production deployment: when is bypassPermissions
+        safe?
+      </p>
+
+      <h2>The six modes at a glance</h2>
+      <p>
+        Claude Code and the SDK share the same set of modes. The table below is
+        the short version; the sections after it hold the details that bite.
+      </p>
+      <table>
+        <thead><tr><th>Mode</th><th>What it auto-approves at step 4</th></tr></thead>
+        <tbody>
+          <tr><td><code>default</code></td><td>Nothing. Each tool prompts on first use (labeled Manual in recent CLI builds).</td></tr>
+          <tr><td><code>acceptEdits</code></td><td>File edits and a fixed list of filesystem Bash commands, scoped to the working directory and additional directories.</td></tr>
+          <tr><td><code>plan</code></td><td>Read-only exploration. Writes are never auto-approved; they route to your callback.</td></tr>
+          <tr><td><code>auto</code></td><td>Tool calls a model classifier judges to match your request. A research preview.</td></tr>
+          <tr><td><code>dontAsk</code></td><td>Nothing new. It turns every would-be prompt into a denial instead.</td></tr>
+          <tr><td><code>bypassPermissions</code></td><td>Everything that reaches step 4, except calls caught by explicit ask rules or the circuit breaker.</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The descriptions come from the
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">Claude Code permission modes table</a>
+        and the
+        <a href="https://code.claude.com/docs/en/agent-sdk/permissions" target="_blank" rel="noopener">SDK mode table</a>,
+        which agree on behaviour. In Python you set the mode with
+        <code>ClaudeAgentOptions(permission_mode="acceptEdits")</code>, or change
+        it mid-session with <code>client.set_permission_mode(...)</code>.
+      </p>
+
+      <h2>What acceptEdits actually approves</h2>
+      <p>
+        acceptEdits is the mode people reach for to stop babysitting a
+        refactor, and it auto-approves more than the Edit and Write tools. It
+        also approves a fixed list of filesystem Bash commands. The SDK docs name
+        them:
+        <a href="https://code.claude.com/docs/en/agent-sdk/permissions" target="_blank" rel="noopener"><code>mkdir</code>, <code>touch</code>, <code>rm</code>, <code>rmdir</code>, <code>mv</code>, <code>cp</code>, and <code>sed</code></a>.
+        Both the edits and the commands apply only to paths inside the working
+        directory or <code>additionalDirectories</code>; paths outside that scope,
+        and writes to protected paths, still prompt.
+      </p>
+      <p>
+        That <code>rm</code> is on the list surprises people who read the mode
+        name as "accept edits." Running
+        <code>examples/ch05/acceptedits_demo.py</code> makes the scope concrete.
+        The model is configured with a working directory of
+        <code>/home/dev/project</code> and one additional directory,
+        <code>/home/dev/shared</code>:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">python3 examples/ch05/acceptedits_demo.py</figcaption>
+        <pre><code class="language-text">acceptEdits filesystem commands: ['cp', 'mkdir', 'mv', 'rm', 'rmdir', 'sed', 'touch']
+
+auto-approve  Edit   src/app.py
+PROMPT        Edit   /etc/hosts
+auto-approve  Write  /home/dev/shared/notes.md
+auto-approve  Bash   mkdir build
+auto-approve  Bash   rm src/old.py
+PROMPT        Bash   rm /etc/passwd
+PROMPT        Bash   rm -rf /
+PROMPT        Bash   curl https://example.com</code></pre>
+      </figure>
+
+      <p>
+        Read down the verdicts. An edit inside the project is approved; the same
+        edit to <code>/etc/hosts</code> is not. An <code>rm</code> of a project
+        file is approved; an <code>rm</code> of <code>/etc/passwd</code> is not,
+        because it's out of scope. And <code>rm -rf /</code> prompts even though
+        <code>rm</code> is on the approved list, which is the circuit breaker we
+        turn to next. A non-filesystem command like <code>curl</code> was never a
+        candidate for acceptEdits and prompts as usual.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          acceptEdits scopes on the working directory, so anything you add to
+          <code>additionalDirectories</code> widens the auto-approval blast
+          radius for <code>rm</code>, <code>mv</code>, and the rest, not just for
+          reads. If you extend an agent's directories for convenience, you have
+          also extended where it can delete files without asking. Keep that list
+          as short as the task allows.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/permissions" target="_blank" rel="noopener">Agent SDK permissions — acceptEdits mode</a></p>
+      </aside>
+
+      <h2>The bypassPermissions circuit breaker</h2>
+      <p>
+        bypassPermissions skips permission prompts for everything that reaches
+        step 4. The name suggests a clean off switch, but two categories of call
+        still stop it. Explicit <code>ask</code> rules still force a prompt, and
+        a small set of catastrophic removals still prompt as a circuit breaker
+        against model error. The
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">warning in the docs</a>
+        spells out that even in bypass mode, writes to <code>.git</code>,
+        <code>.config/git</code>, <code>.claude</code>, <code>.vscode</code>,
+        <code>.idea</code>, <code>.husky</code>, <code>.cargo</code>,
+        <code>.devcontainer</code>, <code>.yarn</code>, and <code>.mvn</code> are
+        skipped without a prompt, but removals targeting the filesystem root or
+        home directory, such as <code>rm -rf /</code> and <code>rm -rf ~</code>,
+        still prompt.
+      </p>
+      <p>
+        Read that carefully, because it cuts against intuition. The dotfile
+        directories in that list are <em>not</em> protected in bypass mode; the
+        warning is telling you the mode will happily write to your
+        <code>.git</code> directory. Only the root and home removals are held
+        back, and only as a last-ditch guard against the model doing something
+        ruinous, not as a security boundary you should design around.
+      </p>
+
+      <h2>Modes propagate to subagents</h2>
+      <p>
+        A permission mode is not confined to the agent you set it on. The SDK
+        documents that when the parent uses
+        <a href="https://code.claude.com/docs/en/agent-sdk/permissions" target="_blank" rel="noopener"><code>bypassPermissions</code>, <code>acceptEdits</code>, or <code>auto</code>, all subagents inherit that mode and it cannot be overridden per subagent</a>.
+        That's a sharper edge than it first appears. Subagents can carry
+        different system prompts and behave less conservatively than your main
+        agent, and a subagent spawned from a bypass-mode parent gets full,
+        autonomous system access with no way to walk it back for that child. An
+        explicit ask rule is the one thing that still forces a prompt inside the
+        subagent.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          If your agent uses subagents at all, treat the parent's permission mode
+          as the mode the <em>whole tree</em> runs in. A convenient
+          <code>acceptEdits</code> on the parent becomes <code>acceptEdits</code>
+          on every Explore and Plan subagent underneath it, deleting files in
+          scope without prompting. Design the mode for the least trusted node in
+          the tree, then use deny and ask rules, which subagents can't shed, to
+          hold the line where a mode can't.
+        </p>
+      </aside>
+
+      <h2>When bypassPermissions is actually safe</h2>
+      <p>
+        The honest answer is narrow. bypassPermissions is safe only inside a real
+        isolation boundary, one where the agent having full system access doesn't
+        matter because the system is disposable and contains nothing you'd mind
+        losing. The docs put it the same way:
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">only use this mode in isolated environments like containers or VMs where Claude Code can't cause damage</a>.
+      </p>
+      <p>
+        The failure is running it on a developer's laptop or a shared host
+        because prompts are annoying, and then leaning on the mode's own guards
+        to save you. Those guards, the ask-rule exception and the root-removal
+        circuit breaker, are not an isolation boundary. They stop a couple of
+        specific mistakes; they don't stop an agent reading your credentials,
+        writing to your <code>.git</code>, or reaching the network. A real
+        boundary is a container the agent can't escape, a microVM, or a network
+        the agent can't see past. Building those boundaries is the subject of
+        Part III, and bypassPermissions belongs strictly inside one of them.
+      </p>
+      <p>
+        Two adjacent guardrails are worth naming. You can forbid the mode outright
+        by setting <code>permissions.disableBypassPermissionsMode</code> to
+        <code>"disable"</code> (Chapter 8 pins it in managed settings so nobody
+        can flip it back), and a related note from Part III: the standalone
+        <code>--dangerously-skip-permissions</code> flag is
+        <a href="https://code.claude.com/docs/en/sandboxing" target="_blank" rel="noopener">blocked when running as root outside a recognized sandbox</a>,
+        precisely because root plus no prompts can rewrite anything on the host.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          A permission mode is not the same thing as the Bash sandbox's
+          auto-allow mode, even though both cut prompts. A mode decides
+          <em>whether a tool call runs</em> at step 4 of the pipeline. The
+          sandbox decides <em>what a Bash command can touch</em> once it runs,
+          and its auto-allow substitutes the OS boundary for the prompt. They
+          compose: you can run <code>default</code> mode with sandbox auto-allow
+          and still get unattended Bash execution, contained by the kernel rather
+          than trusted by the classifier. Part III separates the two properly.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/sandboxing" target="_blank" rel="noopener">Sandboxing — modes vs. auto-allow</a></p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — {{WHAT_S_ALREADY_RUNNING}}.
+        </p>
+        <p>
+          Run <code>python3 examples/ch05/acceptedits_demo.py</code> and add a
+          case: an <code>rm</code> of a file in the additional directory. Predict
+          the verdict, then confirm it.
+        </p>
+        <p>
+          Then open <code>challenges/ch05/challenge.py</code> and implement
+          <code>accept_edits_approves()</code>, the exact command list, the
+          in-scope check, and the <code>rm -rf /</code> circuit breaker. Run
+          <code>uv run pytest challenges/ch05/</code> until it passes. One test
+          asserts the command set is exactly the seven documented commands, so a
+          near-miss like adding <code>ln</code> will fail.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch04.html"><span class="dir">← Previous</span>The Permission Evaluation Pipeline</a>
+        <a class="next" href="ch06.html"><span class="dir">Next →</span>Tool-Specific Rules</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

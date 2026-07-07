@@ -1,0 +1,26 @@
+{
+  "_comment": "REFERENCE config, not executed on this macOS build machine. Firecracker needs Linux + KVM. Field names verified against the Firecracker OpenAPI spec (src/firecracker/swagger/firecracker.yaml). Pass this to the VMM with: firecracker --api-sock /run/fc.sock --config-file firecracker-vm-config.json",
+  "boot-source": {
+    "kernel_image_path": "/images/vmlinux-6.1",
+    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off"
+  },
+  "drives": [
+    {
+      "drive_id": "rootfs",
+      "path_on_host": "/images/agent-rootfs.ext4",
+      "is_root_device": true,
+      "is_read_only": false
+    }
+  ],
+  "machine-config": {
+    "vcpu_count": 2,
+    "mem_size_mib": 1024,
+    "smt": false,
+    "track_dirty_pages": false
+  },
+  "vsock": {
+    "guest_cid": 3,
+    "uds_path": "/run/fc.vsock"
+  },
+  "network-interfaces": []
+}

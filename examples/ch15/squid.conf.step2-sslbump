@@ -1,0 +1,41 @@
+# Step 2 — add TLS interception (SSL bump).
+#
+# Now the proxy stops tunnelling HTTPS blindly and instead decrypts it: it
+# presents the client a certificate it mints on the fly for the target host,
+# signed by our own CA, reads the plaintext request, then opens its own TLS
+# connection to the real server. This is a deliberate person-in-the-middle. It
+# only works because the client trusts our CA; see the gotcha in chapter 15.
+
+acl allowed_domains dstdomain .anthropic.com .github.com .httpbin.org example.com mock-api
+acl SSL_ports port 443
+acl CONNECT method CONNECT
+http_access deny CONNECT !SSL_ports
+
+# ssl-bump turns this port into an interception port. generate-host-certificates
+# lets Squid mint a per-site certificate for whatever host the client asked for;
+# tls-cert/tls-key are the CA it signs those certificates with.
+http_port 3128 ssl-bump \
+  generate-host-certificates=on \
+  dynamic_cert_mem_cache_size=4MB \
+  tls-cert=/etc/squid/certs/squid-ca.pem \
+  tls-key=/etc/squid/certs/squid-ca.key
+
+# The helper that actually generates and caches those per-site certificates.
+sslcrtd_program /usr/lib/squid/security_file_certgen -s /var/lib/squid/ssl_db -M 4MB
+sslcrtd_children 5
+
+# The step-based bumping model (peek-and-splice), which replaced the older
+# client-first/server-first actions. At step 1 we only have the TCP CONNECT and
+# the TLS ClientHello, so we "peek" to read the SNI. At step 2 we decide: bump
+# (decrypt) anything on the allowlist, and terminate anything else outright.
+acl step1 at_step SslBump1
+ssl_bump peek step1
+ssl_bump bump allowed_domains
+ssl_bump terminate all
+
+http_access allow allowed_domains
+http_access deny all
+
+logfile_rotate 0
+access_log stdio:/var/log/squid/access.log
+coredump_dir /var/spool/squid

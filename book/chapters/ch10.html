@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 10 · Hardened Containers — Agent SDK Security</title>
+<meta name="description" content="Build a real hardened Docker container for an agent and prove each flag works: --read-only blocks a write, --network none blocks a connection, --cap-drop ALL removes CAP_CHOWN, --pids-limit stops a fork bomb. Chapter 10 of Agent SDK Security, Part III · Isolation Technologies.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, container hardening, Docker security, cap-drop, seccomp, read-only rootfs, pids-limit, no-new-privileges, network none, least privilege">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch10.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 10 · Hardened Containers — Agent SDK Security">
+<meta property="og:description" content="Build a real hardened Docker container an agent can't escape, and prove each hardening flag does what the docs claim with captured terminal output.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch10.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 10 · Hardened Containers — Agent SDK Security">
+<meta name="twitter:description" content="Build a real hardened Docker container an agent can't escape, and prove each hardening flag does what the docs claim.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 10,
+  "name": "Hardened Containers",
+  "description": "Building a Docker container an agent can't escape: capabilities, seccomp, read-only root, and a socket instead of a network interface.",
+  "url": "{{PAGES_URL}}chapters/ch10.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch09.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch11.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html" class="current"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 10 · Part III — Isolation Technologies</p>
+      <h1>Hardened Containers</h1>
+      <p class="lede">
+        A container out of the box shares a lot with its host: a full set of Linux
+        capabilities, a writable root filesystem, a network interface, no limit on
+        processes or memory. A hardened container gives back almost all of that. In
+        this chapter you build one by hand from the exact flag set the
+        secure-deployment guide recommends, run it on this machine, and prove with
+        captured terminal output that each flag actually stops something. The proofs
+        are the point. It is easy to copy a long <code>docker run</code> line; it is
+        worth seeing the kernel refuse a write, a connection, and a privileged
+        operation because of it.
+      </p>
+
+      <h2>The flag set</h2>
+      <p>
+        Here is the hardened configuration from the
+        <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment#containers" target="_blank" rel="noopener">secure-deployment
+        documentation</a>, verbatim. Every line does one job, and the sections below
+        prove four of them on real hardware.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">the recommended hardened invocation</figcaption>
+        <pre><code class="language-bash">docker run \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --security-opt seccomp=/path/to/seccomp-profile.json \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=100m \
+  --tmpfs /home/agent:rw,noexec,nosuid,size=500m \
+  --network none \
+  --memory 2g \
+  --cpus 2 \
+  --pids-limit 100 \
+  --user 1000:1000 \
+  -v /path/to/code:/workspace:ro \
+  -v /var/run/proxy.sock:/var/run/proxy.sock:ro \
+  agent-image
+</code></pre>
+      </figure>
+
+      <p>
+        Each option maps to a specific reduction in what a process inside can do.
+        <code>--cap-drop ALL</code> removes Linux capabilities such as
+        <code>NET_ADMIN</code> and <code>SYS_ADMIN</code> that could enable privilege
+        escalation. <code>--security-opt no-new-privileges</code> prevents a process
+        from gaining privileges through a setuid binary. <code>--security-opt
+        seccomp=</code> restricts the available syscalls; Docker's default profile
+        already blocks around 44, and a custom profile can block more.
+        <code>--read-only</code> makes the container's root filesystem immutable, so
+        the agent cannot persist changes, while the <code>--tmpfs</code> mounts give
+        it writable scratch space that is wiped when the container stops.
+        <code>--network none</code> removes every network interface, leaving the
+        mounted Unix socket as the only way out. <code>--memory</code>,
+        <code>--cpus</code>, and <code>--pids-limit</code> cap resources so a runaway
+        or a fork bomb cannot exhaust the host. <code>--user 1000:1000</code> runs
+        the process as a non-root user, and the read-only code mount lets the agent
+        analyze code it cannot change.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          The read-only code mount is where credentials leak into a hardened
+          container. Even <code>:ro</code> access exposes anything sitting in the
+          directory you mount. The docs list the files to exclude or sanitize first:
+          <code>.env</code> and <code>.env.local</code>, <code>~/.git-credentials</code>,
+          <code>~/.aws/credentials</code>,
+          <code>~/.config/gcloud/application_default_credentials.json</code>,
+          <code>~/.azure/</code>, <code>~/.docker/config.json</code>,
+          <code>~/.kube/config</code>, <code>.npmrc</code> and <code>.pypirc</code>,
+          any <code>*-service-account.json</code>, and <code>*.pem</code> or
+          <code>*.key</code> private keys. Mount only the source you need, or filter
+          with a <code>.dockerignore</code>-style copy step.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment#read-only-code-mounting" target="_blank" rel="noopener">Secure deployment · read-only code mounting</a></p>
+      </aside>
+
+      <h2>A payload to confine</h2>
+      <p>
+        To prove anything, you need something running inside that reports what it can
+        and cannot do. The image is deliberately minimal: a Python base, a non-root
+        user, and one script. That script is not the Agent SDK. It is a set of probes
+        standing in for whatever an agent, or a prompt-injected command an agent ran,
+        might attempt from inside the box.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch10/Dockerfile</figcaption>
+        <pre><code class="language-docker">FROM python:3.12-slim
+RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin agent
+WORKDIR /app
+COPY agent.py /app/agent.py
+CMD ["python3", "/app/agent.py"]
+</code></pre>
+      </figure>
+
+      <p>
+        Build it once with a clearly namespaced tag so it will not collide with
+        anything else on the daemon:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">terminal</figcaption>
+        <pre><code class="language-bash">$ cd examples/ch10
+$ docker build -t agent-sdk-security-ch10 .
+</code></pre>
+      </figure>
+
+      <h2>Proof 1: <code>--read-only</code> blocks writes outside a tmpfs</h2>
+      <p>
+        Run the image with a read-only root and a single writable <code>/tmp</code>
+        tmpfs, then try to write to the application directory on the root filesystem.
+        The kernel refuses. Writing to the tmpfs mount succeeds. This is the same
+        command twice with a different target path.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">terminal · captured output</figcaption>
+        <pre><code class="language-bash">$ docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+    --user 1000:1000 agent-sdk-security-ch10 sh -c 'echo pwned > /app/escape.txt'
+sh: 1: cannot create /app/escape.txt: Read-only file system
+
+$ docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+    --user 1000:1000 agent-sdk-security-ch10 sh -c 'echo scratch > /tmp/ok.txt && cat /tmp/ok.txt'
+scratch
+</code></pre>
+      </figure>
+
+      <h2>Proof 2: <code>--network none</code> removes every interface</h2>
+      <p>
+        List the network interfaces with and without the flag. The default run has an
+        <code>eth0</code>; the isolated run does not, leaving only loopback and the
+        kernel's always-present virtual tunnel devices. An outbound connection under
+        <code>--network none</code> then fails because there is no route to anywhere.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">terminal · captured output</figcaption>
+        <pre><code class="language-bash">$ docker run --rm agent-sdk-security-ch10 sh -c 'echo ifaces: $(ls /sys/class/net)'
+ifaces: bonding_masters erspan0 eth0 gre0 gretap0 ip6_vti0 ip6gre0 ip6tnl0 ip_vti0 lo sit0 tunl0
+
+$ docker run --rm --network none agent-sdk-security-ch10 sh -c 'echo ifaces: $(ls /sys/class/net)'
+ifaces: bonding_masters erspan0 gre0 gretap0 ip6_vti0 ip6gre0 ip6tnl0 ip_vti0 lo sit0 tunl0
+
+$ docker run --rm --network none agent-sdk-security-ch10 \
+    python3 -c "import socket; socket.create_connection(('1.1.1.1',443),timeout=4)"
+OSError: [Errno 101] Network is unreachable
+</code></pre>
+      </figure>
+
+      <p>
+        The <code>eth0</code> present in the first list is gone from the second. With
+        no interface, the only way for the agent to reach the outside world is the
+        Unix socket you mount, which connects to a proxy on the host. That proxy is
+        where domain allowlisting, credential injection, and traffic logging live,
+        and it is the whole subject of Part IV. A compromised agent behind
+        <code>--network none</code> cannot exfiltrate to an arbitrary server; it can
+        only speak to whatever is on the far end of that socket.
+      </p>
+
+      <h2>Proof 3: <code>--cap-drop ALL</code> removes CAP_CHOWN</h2>
+      <p>
+        Capabilities are easiest to see with one that root normally has and a
+        hardened container does not. Changing a file's owner needs
+        <code>CAP_CHOWN</code>. Run as root with default capabilities and the
+        <code>chown</code> succeeds. Run as root with <code>--cap-drop ALL</code> and
+        the same operation is refused, even though the process is uid 0.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">terminal · captured output</figcaption>
+        <pre><code class="language-bash">$ docker run --rm --user 0:0 agent-sdk-security-ch10 \
+    sh -c 'touch /root/f && chown 1000:1000 /root/f && echo chown-OK'
+chown-OK
+
+$ docker run --rm --cap-drop ALL --user 0:0 agent-sdk-security-ch10 \
+    sh -c 'touch /root/f && chown 1000:1000 /root/f'
+chown: changing ownership of '/root/f': Operation not permitted
+</code></pre>
+      </figure>
+
+      <p>
+        Being root inside the container is not the same as being able to do
+        root-level things. Dropping capabilities is what makes a non-root user
+        redundant as a defense rather than the only line of it.
+      </p>
+
+      <h2>Proof 4: <code>--pids-limit</code> caps the process table</h2>
+      <p>
+        A fork bomb is the classic denial-of-service a shared host worries about.
+        With <code>--pids-limit 16</code>, once the container is holding sixteen
+        processes the kernel refuses to create more, so a loop asking for forty
+        background sleeps hits a wall. The same workload without the limit spawns them
+        all without complaint.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">terminal · captured output</figcaption>
+        <pre><code class="language-bash">$ docker run --rm --pids-limit 16 agent-sdk-security-ch10 \
+    sh -c 'n=0; while [ $n -lt 40 ]; do sleep 20 & n=$((n+1)); done'
+sh: 0: Cannot fork
+</code></pre>
+      </figure>
+
+      <h2>The whole thing, self-reporting</h2>
+      <p>
+        Put every flag together and let the payload report from inside. This is the
+        hardened container running end to end: non-root, read-only root with a tmpfs,
+        no network, capped memory, CPU, and process count, and private IPC. The output
+        is the agent describing its own confinement.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">terminal · captured output</figcaption>
+        <pre><code class="language-bash">$ docker run --rm \
+    --cap-drop ALL \
+    --security-opt no-new-privileges \
+    --read-only \
+    --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+    --network none \
+    --memory 512m \
+    --cpus 1 \
+    --pids-limit 128 \
+    --user 1000:1000 \
+    --ipc private \
+    agent-sdk-security-ch10
+uid=1000 gid=1000
+rootfs-write: BLOCKED (Read-only file system)
+tmpfs-write:  WROTE /tmp/scratch.txt
+net-ifaces:   ['bonding_masters', 'erspan0', 'gre0', 'gretap0', 'ip6_vti0', 'ip6gre0', 'ip6tnl0', 'ip_vti0', 'lo', 'sit0', 'tunl0']
+net-connect:  BLOCKED (Network is unreachable)
+</code></pre>
+      </figure>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Two more flags harden the boundary further. <code>--userns-remap</code> maps
+          the container's root to an unprivileged user on the host, so even a
+          container escape lands as a nobody rather than host root; it needs daemon
+          configuration to enable. <code>--ipc private</code> gives the container its
+          own IPC namespace so it cannot reach another container's shared memory.
+          Neither shows up in a quick smoke test the way the four proofs above do, but
+          both matter when containers share a host with workloads they should not be
+          able to observe.
+        </p>
+        <p class="source">Source: <a href="https://docs.docker.com/engine/security/userns-remap/" target="_blank" rel="noopener">Docker · isolate containers with a user namespace</a></p>
+      </aside>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          These proofs ran on macOS with Docker Desktop, which is worth being precise
+          about. Docker Desktop runs a real Linux VM, and the container runs inside
+          that VM's Linux kernel. So <code>--cap-drop</code>, <code>--read-only</code>,
+          <code>--network none</code>, and <code>--pids-limit</code> are enforced by a
+          genuine Linux kernel, not emulated. What that same kernel also means is the
+          limitation the next chapter opens on: your container and every other
+          container share that one kernel. A hardened container shrinks the attack
+          surface a great deal, but a kernel vulnerability is still a path across the
+          boundary.
+        </p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — Docker is available there.
+        </p>
+        <p>
+          Everything above lives in <code>examples/ch10/</code>. Run
+          <code>bash examples/ch10/run-hardening-proofs.sh</code> to build the image,
+          reproduce all four proofs and the full hardened run, and clean the image up
+          afterward. The captured output in this chapter came from exactly that
+          script.
+        </p>
+        <p>
+          Then open <code>challenges/ch10/</code>. You implement
+          <code>missing_hardening(args)</code>, which audits a <code>docker run</code>
+          argument list against the minimum-hardening checklist and reports what is
+          missing. Verify with
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch10</code>. One test hands
+          it a fully hardened line and expects an empty list; another swaps
+          <code>--user 1000:1000</code> for <code>0:0</code> and expects
+          <code>non-root</code> back.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch09.html"><span class="dir">← Previous</span>The Built-In Sandbox</a>
+        <a class="next" href="ch11.html"><span class="dir">Next →</span>gVisor</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

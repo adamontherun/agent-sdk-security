@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 12 · MicroVMs and Firecracker — Agent SDK Security</title>
+<meta name="description" content="Firecracker's Rust KVM-based VMM, its five-device model, the jailer, vsock networking with no external NIC, ~125ms boot and <5 MiB memory overhead, and how AWS built Lambda and Fargate on it. Chapter 12 of Agent SDK Security, Part III · Isolation Technologies.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, Firecracker, microVM, KVM, jailer, vsock, hardware isolation, AWS Lambda, container hardening, VMM">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch12.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 12 · MicroVMs and Firecracker — Agent SDK Security">
+<meta property="og:description" content="Hardware-level isolation at container weight: Firecracker's architecture, the jailer, vsock networking, and the primitive underneath AWS Lambda.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch12.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 12 · MicroVMs and Firecracker — Agent SDK Security">
+<meta name="twitter:description" content="Hardware-level isolation at container weight: Firecracker's architecture, the jailer, vsock networking, and the primitive underneath AWS Lambda.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 12,
+  "name": "MicroVMs and Firecracker",
+  "description": "Hardware-level isolation without the weight of a full VM, and how AWS Lambda MicroVMs turns it into a managed primitive.",
+  "url": "{{PAGES_URL}}chapters/ch12.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch11.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch13.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html" class="current"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 12 · Part III — Isolation Technologies</p>
+      <h1>MicroVMs and Firecracker</h1>
+      <p class="lede">
+        gVisor gave the agent its own kernel in software. A virtual machine gives it
+        its own kernel in hardware, behind the CPU's virtualization extensions, which
+        is the strongest boundary in this part. The old objection to VMs was weight:
+        seconds to boot and hundreds of megabytes of overhead made them impractical to
+        spin up per task. Firecracker is the answer to that objection. It boots a
+        stripped-down virtual machine in a fraction of a second with a few megabytes of
+        overhead, which makes VM-grade isolation cheap enough to use per agent session.
+        As with gVisor, this needs Linux and KVM, so the configs here are verified
+        against the official docs rather than run on this Mac.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Can't run this on a Mac</span>
+        <p>
+          Firecracker is a Linux VMM built on KVM. It does not run on this macOS build
+          machine, which has no KVM. The JSON and commands below are real, taken from
+          the Firecracker project's own documentation and API schema, and the field
+          names are checked against the OpenAPI spec in the repository. What is
+          verified here is the config and the citations; actually booting a microVM
+          needs a Linux host with <code>/dev/kvm</code>.
+        </p>
+      </aside>
+
+      <h2>A deliberately small machine</h2>
+      <p>
+        The <a href="https://firecracker-microvm.github.io/" target="_blank" rel="noopener">Firecracker
+        project</a> describes itself as a virtual machine monitor, a VMM, that uses the
+        Linux Kernel-based Virtual Machine (KVM) to create and manage microVMs.
+        Firecracker is written in Rust, which gives the VMM itself the same
+        memory-safety argument gVisor's Go kernel has. The design decision that makes
+        it a microVM rather than a general-purpose VM is what it leaves out. Where a
+        traditional hypervisor emulates a whole PC's worth of devices, Firecracker
+        emulates only five: virtio-net, virtio-block, virtio-vsock, a serial console,
+        and a minimal keyboard controller used only to stop the microVM. Every device
+        that is not there is attack surface that is not there.
+      </p>
+      <p>
+        That minimalism is what buys the numbers. The project states Firecracker
+        initiates user-space or application code in as little as 125 ms, runs each
+        microVM with a memory overhead of less than 5 MiB, and supports creation rates
+        of up to 150 microVMs per second per host. Those figures are why per-session VM
+        isolation is realistic: booting a fresh VM for each agent task is on the order
+        of a tenth of a second, not ten seconds.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          Firecracker pairs the hardware boundary with a userspace one. The
+          <a href="https://github.com/firecracker-microvm/firecracker/blob/main/docs/getting-started.md" target="_blank" rel="noopener">getting-started
+          guide</a> says the VMM is designed to run inside an execution jail set up by
+          the <code>jailer</code> binary, which the project describes as a second line
+          of defense in case the virtualization barrier is ever compromised. The jailer
+          applies the ordinary Linux userspace security barriers, namespaces, cgroups,
+          a chroot, dropped privileges, around the Firecracker process, so an escape
+          from the guest still lands inside a locked-down host process rather than on
+          the host proper.
+        </p>
+      </aside>
+
+      <h2>vsock instead of a network card</h2>
+      <p>
+        The isolation pattern for an agent looks like the <code>--network none</code>
+        container from chapter 10, taken one step further. The agent's microVM is
+        configured with no external network interface at all. Instead it gets a
+        virtio-vsock device, a virtual socket that connects the guest to the host and
+        nothing else. All traffic routes over that vsock to a proxy on the host, which
+        enforces allowlists and injects credentials before forwarding anything outward.
+        There is no NIC for a compromised agent to send packets from, so the proxy is
+        not one option for egress; it is the only path.
+      </p>
+      <p>
+        Configuring a microVM is a sequence of API calls to a local socket, or a single
+        config file passed at launch. The vsock body has two fields, verified against
+        the project's <a href="https://github.com/firecracker-microvm/firecracker/blob/main/docs/vsock.md" target="_blank" rel="noopener">vsock
+        documentation</a>: a <code>guest_cid</code> and the <code>uds_path</code> of the
+        host-side Unix socket the proxy listens on.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch12/firecracker-vm-config.json (reference)</figcaption>
+        <pre><code class="language-json">{
+  "boot-source": {
+    "kernel_image_path": "/images/vmlinux-6.1",
+    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off"
+  },
+  "drives": [
+    {
+      "drive_id": "rootfs",
+      "path_on_host": "/images/agent-rootfs.ext4",
+      "is_root_device": true,
+      "is_read_only": false
+    }
+  ],
+  "machine-config": {
+    "vcpu_count": 2,
+    "mem_size_mib": 1024,
+    "smt": false,
+    "track_dirty_pages": false
+  },
+  "vsock": {
+    "guest_cid": 3,
+    "uds_path": "/run/fc.vsock"
+  },
+  "network-interfaces": []
+}
+</code></pre>
+      </figure>
+
+      <p>
+        The empty <code>network-interfaces</code> array is the whole security posture in
+        one line. No <code>network-interfaces</code> entry means no virtio-net device is
+        created, which means the guest has no way to reach a network directly. The
+        equivalent API-call form, one PUT per resource, is in
+        <code>examples/ch12/configure-microvm.sh</code>; the boot-source, drive, and
+        action bodies come straight from the getting-started guide.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch12/configure-microvm.sh (excerpt, from the Firecracker docs)</figcaption>
+        <pre><code class="language-bash"># vsock for host&lt;-&gt;guest comms (no /network-interfaces call anywhere)
+curl -X PUT --unix-socket "${API_SOCKET}" \
+  --data '{"guest_cid": 3, "uds_path": "/run/fc.vsock"}' \
+  "http://localhost/vsock"
+
+# boot it
+curl -X PUT --unix-socket "${API_SOCKET}" \
+  --data '{"action_type": "InstanceStart"}' \
+  "http://localhost/actions"
+</code></pre>
+      </figure>
+
+      <h2>The primitive underneath the managed services</h2>
+      <p>
+        Firecracker was built at AWS to improve the experience of Lambda and Fargate,
+        and that lineage is the practical reason it matters here. Most teams will never
+        run Firecracker directly. They will consume it through a service that runs it
+        for them. AWS built Lambda and Fargate on this mechanism, and it now offers the
+        same isolation as a directly consumable primitive: AWS Lambda MicroVMs, which
+        launches a Firecracker microVM per session and gives you lifecycle control over
+        it. When you use that service, the vsock-to-proxy pattern, the per-session
+        boot, and the minimal device model described above are what is running for you
+        underneath.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          The build-versus-consume decision is usually consume. Running Firecracker
+          yourself means managing kernel and rootfs images, the jailer, the vsock
+          proxy, and the orchestration that pools and recycles microVMs. That is real
+          engineering, justified when you are a platform provider running untrusted
+          tenant code at scale. For everyone else, the same isolation arrives managed:
+          chapter 19 deploys an agent on AWS Lambda MicroVMs and works through the
+          image-then-launch model, per-session isolation, and when it beats a
+          long-running container. This chapter is the mechanism; that chapter is the
+          product built on it.
+        </p>
+      </aside>
+
+      <h2>Where this leaves the strength ladder</h2>
+      <p>
+        Across four chapters the boundary has climbed a clear ladder. The built-in
+        sandbox confines Bash on a shared kernel. A hardened container adds namespaces,
+        dropped capabilities, and resource limits, still on a shared kernel. gVisor
+        replaces the shared kernel with a userspace one for the syscalls the agent
+        makes. A microVM gives the agent a real, separate kernel behind hardware
+        virtualization, with a five-device attack surface and a jailer around the VMM.
+        Each step is stronger and costs more, in overhead, in complexity, or in both.
+        Knowing the ladder is not the same as knowing which rung your deployment
+        belongs on, which is exactly what the next chapter decides.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No Linux host with KVM? The configs in <code>examples/ch12/</code> are
+          reference material you can read and adapt; booting them needs
+          <code>/dev/kvm</code>, which this course does not require you to have.
+        </p>
+        <p>
+          The challenge in <code>challenges/ch12/</code> is runnable anywhere. You
+          implement <code>validate_microvm_config(cfg)</code>, which checks a
+          Firecracker config for the no-external-NIC isolation pattern: a real kernel
+          and root drive, sized CPU and memory, a vsock, and above all no populated
+          <code>network-interfaces</code>. Verify with
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch12</code>. One test adds a
+          network interface and expects <code>external-nic-present</code> back, because
+          a NIC breaks the pattern this chapter is built on.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch11.html"><span class="dir">← Previous</span>gVisor</a>
+        <a class="next" href="ch13.html"><span class="dir">Next →</span>Choosing an Isolation Strategy</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

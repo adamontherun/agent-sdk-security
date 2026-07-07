@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 9 · The Built-In Sandbox — Agent SDK Security</title>
+<meta name="description" content="Claude Code's built-in sandboxed Bash tool: how Seatbelt and bubblewrap enforce filesystem and network isolation, why reads are broad by default, and where the guarantees stop. Chapter 9 of Agent SDK Security, Part III · Isolation Technologies.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, sandboxing, bubblewrap, Seatbelt, sandbox.credentials, network isolation, domain fronting, container hardening, least privilege">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch09.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 9 · The Built-In Sandbox — Agent SDK Security">
+<meta property="og:description" content="How Claude Code's sandboxed Bash tool enforces filesystem and network isolation with Seatbelt and bubblewrap, and where its guarantees end.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch09.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 9 · The Built-In Sandbox — Agent SDK Security">
+<meta name="twitter:description" content="How Claude Code's sandboxed Bash tool enforces filesystem and network isolation with Seatbelt and bubblewrap, and where its guarantees end.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 9,
+  "name": "The Built-In Sandbox",
+  "description": "bubblewrap and Seatbelt: OS-level filesystem and network isolation for the Bash tool, and where its guarantees end.",
+  "url": "{{PAGES_URL}}chapters/ch09.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch08.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch10.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html" class="current"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 9 · Part III — Isolation Technologies</p>
+      <h1>The Built-In Sandbox</h1>
+      <p class="lede">
+        Before you reach for Docker, gVisor, or a microVM, Claude Code already
+        ships an isolation boundary you can turn on with one setting. It uses the
+        operating system's own sandboxing primitives to confine every Bash command
+        and its children to a set of files and network domains you choose. This
+        chapter is about what that boundary actually enforces, the one default that
+        surprises people, and the point past which you need the heavier machinery
+        the rest of Part III builds.
+      </p>
+
+      <h2>What the sandbox is</h2>
+      <p>
+        The sandbox wraps the Bash tool. When it is on, a command Claude runs and
+        every process that command spawns execute inside an OS-enforced jail that
+        limits which files they can touch and which hosts they can reach. The
+        <a href="https://code.claude.com/docs/en/sandboxing" target="_blank" rel="noopener">sandboxing
+        documentation</a> is precise about the mechanism: on macOS it uses the
+        built-in Seatbelt framework, and on Linux and WSL2 it uses
+        <a href="https://github.com/containers/bubblewrap" target="_blank" rel="noopener">bubblewrap</a>
+        for filesystem isolation plus <code>socat</code> to relay network traffic
+        through a proxy. Native Windows is not supported; on Windows you run Claude
+        Code inside a WSL2 distribution. Because the restriction lives in the
+        kernel and not in Claude Code, it holds regardless of what the model
+        decided to run, and it holds even when an allowed command does more than
+        its name suggests.
+      </p>
+      <p>
+        That last point is the reason the sandbox matters as a security control and
+        not just a convenience. Permission rules decide whether a command runs based
+        on the command string. The sandbox decides what the running process can
+        access once it is already executing. A command that passes your allow rules
+        and then tries to read a file it was never meant to touch is stopped by the
+        kernel, not by a judgement about the command text.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          The same primitives are packaged separately as the
+          <a href="https://github.com/anthropic-experimental/sandbox-runtime" target="_blank" rel="noopener"><code>@anthropic-ai/sandbox-runtime</code></a>
+          package, which wraps an entire process rather than just the Bash tool.
+          Subagents run in the same process as their parent and inherit the same
+          sandbox configuration, so enabling the sandbox in a parent session
+          sandboxes the Bash commands its subagents run too.
+        </p>
+      </aside>
+
+      <h2>Filesystem isolation, and the read that is broad by default</h2>
+      <p>
+        Writes are tight. By default a sandboxed command can write only to the
+        current working directory and its subdirectories, plus the session temp
+        directory that <code>$TMPDIR</code> points at. It cannot modify
+        <code>~/.bashrc</code>, system binaries under <code>/bin</code>, or anything
+        else outside those two locations without explicit permission. When a tool
+        genuinely needs to write elsewhere, you grant that path with
+        <code>sandbox.filesystem.allowWrite</code> rather than dropping the tool out
+        of the sandbox entirely.
+      </p>
+      <p>
+        Reads are the opposite, and this is the default worth pausing on. The
+        sandbox allows read access to the entire computer except for directories you
+        explicitly deny. The documentation states the consequence plainly: the
+        default still allows reading credential files such as
+        <code>~/.aws/credentials</code> and <code>~/.ssh/</code>. A command confined
+        to writing inside your project can still read your cloud keys. If that
+        command also has a network domain it is allowed to reach, you have the two
+        halves of an exfiltration path.
+      </p>
+      <p>
+        The fix is <code>sandbox.credentials</code>, a settings block whose job is to
+        name the files and environment variables to keep away from sandboxed
+        commands. File entries take <code>"mode": "deny"</code>, which blocks reads
+        the same way <code>filesystem.denyRead</code> does. Environment-variable
+        entries with <code>deny</code> are unset before each sandboxed command runs.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch09/settings-hardened.json (excerpt)</figcaption>
+        <pre><code class="language-json">{
+  "sandbox": {
+    "enabled": true,
+    "credentials": {
+      "files": [
+        { "path": "~/.aws/credentials", "mode": "deny" },
+        { "path": "~/.ssh", "mode": "deny" }
+      ],
+      "envVars": [
+        { "name": "GITHUB_TOKEN", "mode": "deny" },
+        { "name": "NPM_TOKEN", "mode": "deny" }
+      ]
+    }
+  }
+}
+</code></pre>
+      </figure>
+
+      <p>
+        There is a second mode for environment variables, <code>mask</code>, that
+        solves a real tension: <code>deny</code> protects a token by deleting it,
+        which also breaks the tool that needed it, like <code>gh</code> or
+        <code>npm</code>. With <code>mask</code> the sandboxed command sees a
+        per-session sentinel value instead of the real credential, and when a request
+        leaves the sandbox for one of the credential's <code>injectHosts</code>, the
+        proxy swaps the sentinel for the real value on the way out. The command never
+        holds the secret, but its requests still authenticate. Masking has a
+        prerequisite the docs are emphatic about: the proxy has to see request
+        contents to substitute the credential, so you must set
+        <code>network.tlsTerminate</code> so the proxy terminates HTTPS itself.
+        Without it, masking fails closed and the sentinel reaches the server
+        unchanged, which Claude Code reports at startup and in <code>/doctor</code>.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          There is no built-in credential deny list. Only the files and variables
+          you name are protected. A fresh sandbox with <code>sandbox.enabled</code>
+          set to <code>true</code> and no <code>credentials</code> block still lets
+          a command read <code>~/.aws/credentials</code>. Treat the
+          <code>credentials</code> block as required configuration, not an optional
+          extra, and consider setting
+          <a href="https://code.claude.com/docs/en/env-vars" target="_blank" rel="noopener"><code>CLAUDE_CODE_SUBPROCESS_ENV_SCRUB</code></a>
+          to strip provider credentials from every subprocess regardless of the
+          sandbox.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/sandboxing#filesystem-isolation" target="_blank" rel="noopener">Sandboxing · filesystem isolation</a></p>
+      </aside>
+
+      <h2>Network isolation through the built-in proxy</h2>
+      <p>
+        Network access runs through a proxy that lives outside the sandbox, and the
+        starting position is closed: no domains are pre-allowed. The first time a
+        command needs a new domain, Claude Code prompts for approval, and as of
+        v2.1.191 approving a host allows it for the rest of the session so repeat
+        connections do not prompt again. You skip the prompt entirely by listing
+        hosts in <code>allowedDomains</code>. For a fleet, managed settings can set
+        <code>allowManagedDomainsOnly</code>, which blocks non-allowed domains
+        outright instead of prompting and honors only the <code>allowedDomains</code>
+        that come from managed settings.
+      </p>
+      <p>
+        The proxy makes its decision from the hostname the client asks for. By
+        default it does not terminate or inspect TLS. That keeps it simple and fast,
+        and it is the source of the sharpest limitation in this whole chapter, which
+        the next section gets to.
+      </p>
+
+      <h2>Two ways to approve sandboxed commands</h2>
+      <p>
+        The <code>/sandbox</code> panel offers two modes, and they are about approval
+        flow, not about the strength of the boundary. In both modes the sandbox
+        enforces the same filesystem and network restrictions. In auto-allow mode,
+        sandboxed commands run without a permission prompt because the sandbox
+        boundary contains them; commands that cannot be sandboxed fall back to the
+        regular permission flow. In regular-permissions mode, every Bash command
+        still goes through the normal prompts even when it is sandboxed, which trades
+        convenience for more explicit control.
+      </p>
+      <p>
+        Even in auto-allow mode, some things still stop a command. Explicit deny
+        rules always apply. An <code>rm</code> or <code>rmdir</code> aimed at
+        <code>/</code>, your home directory, or other critical paths still prompts.
+        Content-scoped ask rules like <code>Bash(git push *)</code> still force a
+        prompt. Auto-allow is a statement that the sandbox is a sufficient boundary
+        for ordinary commands, not a blanket approval of everything.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          For a managed deployment, the three keys that turn the sandbox from a
+          convenience into a gate are <code>enabled</code>,
+          <code>failIfUnavailable</code>, and <code>allowUnsandboxedCommands</code>.
+          The first turns it on. The second makes a missing dependency such as
+          bubblewrap a hard startup failure rather than a silent fall-back to
+          unsandboxed execution. The third disables the <code>dangerouslyDisableSandbox</code>
+          escape hatch, so a command that fails under the sandbox cannot be retried
+          outside it. Deliver them through managed settings and Claude Code uses the
+          managed values for these boolean keys and ignores anything a developer sets
+          locally.
+        </p>
+        <p class="source">Source: <a href="https://code.claude.com/docs/en/sandboxing#enforce-sandboxing-with-managed-settings" target="_blank" rel="noopener">Sandboxing · enforce with managed settings</a></p>
+      </aside>
+
+      <h2>Where the guarantees end</h2>
+      <p>
+        The documentation has a security-limitations section, and reading it is what
+        separates using the sandbox well from trusting it too far. The most important
+        limitation follows directly from the proxy design. Because the proxy allows
+        or blocks based on the client-supplied hostname without inspecting TLS, code
+        inside the sandbox can potentially use
+        <a href="https://en.wikipedia.org/wiki/Domain_fronting" target="_blank" rel="noopener">domain fronting</a>
+        or similar techniques to reach a host outside the allowlist. Allowing a broad
+        domain like <code>github.com</code> widens this considerably. If your threat
+        model needs a hard network boundary, you configure a custom proxy that
+        terminates TLS and inspects traffic, which is exactly what Part IV builds with
+        Squid.
+      </p>
+      <p>
+        A few other limitations are worth holding in mind. Allowing a Unix socket
+        through <code>allowUnixSockets</code> can hand back the access the sandbox took
+        away; the docs call out <code>/var/run/docker.sock</code> specifically, since
+        access to the Docker socket effectively grants access to the host. Overly
+        broad write permissions can enable privilege escalation, for instance by
+        letting a command write to a directory on <code>$PATH</code> or to a shell
+        startup file. And two weakening options exist for compatibility that reduce
+        the guarantee when set: <code>enableWeakerNestedSandbox</code>, which lets the
+        sandbox run inside an unprivileged container by bind-mounting the container's
+        <code>/proc</code> instead of a fresh one, and
+        <code>enableWeakerNetworkIsolation</code>, used when routing through a MITM
+        proxy with a custom CA on macOS. Both should be reserved for cases where an
+        outer boundary already provides the isolation you need.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          The honest framing is that the sandbox is real OS-level enforcement on a
+          shared kernel. Sandboxed processes use the same kernel as the host, so a
+          kernel vulnerability could in theory allow escape. For a developer laptop
+          or many CI jobs that boundary is a large improvement over nothing, and it
+          costs one settings block. When the threat model includes untrusted content
+          or multiple tenants, you want a boundary that does not share the host
+          kernel. That is the gap chapters 10 through 12 fill, in increasing order of
+          strength and cost.
+        </p>
+      </aside>
+
+      <p>
+        Effective sandboxing needs both halves at once. Without network isolation a
+        compromised command can exfiltrate a file it was allowed to read; without
+        filesystem isolation it can backdoor a resource to gain network access. When
+        you widen a default on one side, check that you have not undone a restriction
+        on the other. That habit is the through-line for the rest of this part: every
+        stronger boundary we build still asks the same question about what the code
+        inside can read and where it can send what it reads.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the repo and Python toolchain are already installed.
+        </p>
+        <p>
+          Read <code>examples/ch09/settings-hardened.json</code> for a complete
+          sandbox settings block that closes the credential-read default and pins an
+          egress allowlist. Every key in it comes from the sandboxing docs.
+        </p>
+        <p>
+          Then open the challenge at <code>challenges/ch09/</code>. You implement
+          <code>evaluate(config, request)</code>, a teaching model of the documented
+          filesystem and credential rules, and make the tests pass with
+          <code>COURSE_SOLUTIONS=1 uv run pytest challenges/ch09</code> to check
+          against the reference. One test encodes the read-by-default footgun on
+          purpose, so watch what it asserts.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch08.html"><span class="dir">← Previous</span>Managed Settings &amp; Org Policy</a>
+        <a class="next" href="ch10.html"><span class="dir">Next →</span>Hardened Containers</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

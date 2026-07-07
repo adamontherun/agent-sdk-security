@@ -1,0 +1,38 @@
+# REFERENCE workflow, verified against the official gVisor install docs but not
+# executed as part of building this course. runsc needs a real Linux host, which
+# a GitHub Actions ubuntu-latest runner provides and Docker Desktop for Mac does
+# not. This is the "runnable" form of chapter 11's hands-on: copy it into
+# .github/workflows/ in a repo and the runner will install runsc and exercise it.
+#
+# Install commands quoted from https://gvisor.dev/docs/user_guide/install/
+# and https://gvisor.dev/docs/user_guide/quick_start/docker/
+name: gvisor-smoke-test
+on: [workflow_dispatch]
+
+jobs:
+  runsc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install runsc
+        run: |
+          set -e
+          ARCH=$(uname -m)
+          URL=https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}
+          wget ${URL}/runsc ${URL}/runsc.sha512 \
+            ${URL}/containerd-shim-runsc-v1 ${URL}/containerd-shim-runsc-v1.sha512
+          sha512sum -c runsc.sha512 -c containerd-shim-runsc-v1.sha512
+          rm -f ./*.sha512
+          chmod a+rx runsc containerd-shim-runsc-v1
+          sudo mv runsc containerd-shim-runsc-v1 /usr/local/bin
+
+      - name: Register runsc with Docker
+        run: |
+          sudo /usr/local/bin/runsc install
+          sudo systemctl reload docker
+
+      - name: Prove the container runs on gVisor's kernel, not the host's
+        run: |
+          # Under runsc, uname reports gVisor's own kernel identity string,
+          # which is how you confirm the syscalls never reached the host kernel.
+          docker run --rm --runtime=runsc alpine uname -a
+          docker run --rm --runtime=runsc alpine dmesg | head -1 || true

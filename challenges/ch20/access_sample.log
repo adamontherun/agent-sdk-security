@@ -1,0 +1,8 @@
+1699999990.101 55 10.0.1.9 TCP_TUNNEL/200 8192 CONNECT api.anthropic.com:443 - HIER_DIRECT/api.anthropic.com -
+1699999991.204 12 10.0.1.9 TCP_MISS/200 640 GET http://registry.npmjs.org/left-pad - HIER_DIRECT/registry.npmjs.org application/json
+1699999992.330 88 10.0.1.9 TCP_TUNNEL/200 4096 CONNECT github.com:443 - HIER_DIRECT/github.com -
+1699999993.410 3 10.0.1.9 TCP_DENIED/403 210 CONNECT evil.example.net:443 - HIER_NONE/- text/html
+1699999994.512 41 10.0.1.9 TCP_TUNNEL/200 1200 CONNECT paste.example.io:443 - HIER_DIRECT/paste.example.io -
+
+1699999995.600 9 10.0.1.9 TCP_MISS/200 512 GET http://api.anthropic.com:443/v1/models - HIER_DIRECT/api.anthropic.com application/json
+1699999996.700 7 10.0.1.9 TCP_DENIED/403 118 GET http://169.254.169.254/latest/meta-data/ - HIER_NONE/- -

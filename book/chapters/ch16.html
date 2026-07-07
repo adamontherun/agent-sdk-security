@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 16 · Filesystem Configuration — Agent SDK Security</title>
+<meta name="description" content="Read-only code mounting, the credential files that must never be mounted, and writable-location strategies (tmpfs, overlay, dedicated volumes) for agent containers. Chapter 16 of Agent SDK Security, Part IV · Credentials &amp; the Network Boundary.">
+<meta name="keywords" content="Claude Agent SDK, Claude Code, AI agent security, read-only mount, tmpfs, overlay filesystem, credential files, Docker volumes, egress proxy, least privilege">
+<meta name="author" content="Adam Smith">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{PAGES_URL}}chapters/ch16.html">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Agent SDK Security">
+<meta property="og:title" content="Ch 16 · Filesystem Configuration — Agent SDK Security">
+<meta property="og:description" content="What never gets mounted, what gets mounted read-only, and how to let an agent write without trusting what it wrote.">
+<meta property="og:url" content="{{PAGES_URL}}chapters/ch16.html">
+<meta property="og:image" content="{{OG_IMAGE_URL}}">
+<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
+<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ch 16 · Filesystem Configuration — Agent SDK Security">
+<meta name="twitter:description" content="What never gets mounted, what gets mounted read-only, and how to let an agent write without trusting what it wrote.">
+<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="theme-color" content="#c0392b">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Chapter",
+  "position": 16,
+  "name": "Filesystem Configuration",
+  "description": "What never gets mounted, what gets mounted read-only, and how to let an agent write without trusting what it wrote.",
+  "url": "{{PAGES_URL}}chapters/ch16.html",
+  "image": "{{OG_IMAGE_URL}}",
+  "inLanguage": "en",
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
+  "previousItem": "{{PAGES_URL}}chapters/ch15.html",
+  "nextItem": "{{PAGES_URL}}chapters/ch17.html"
+}
+</script>
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">Agent SDK <span class="accent">Security</span></a>
+    <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
+
+    <div class="sidebar-links">
+      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Threat Model &amp; Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>Why Agent Security Is Different</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Built-In Defenses, A Tour</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Security Principles</a></li>
+      </ol>
+      <p class="part-label">Part II · Permissions &amp; Settings</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>The Permission Evaluation Pipeline</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>Permission Modes Compared</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Tool-Specific Rules</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Hooks as a Security Control</a></li>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Managed Settings &amp; Org Policy</a></li>
+      </ol>
+      <p class="part-label">Part III · Isolation Technologies</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>The Built-In Sandbox</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Hardened Containers</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>gVisor</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>MicroVMs and Firecracker</a></li>
+        <li><a href="ch13.html"><span class="ch-num">13</span>Choosing an Isolation Strategy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Credentials &amp; the Network Boundary</p>
+      <ol>
+        <li><a href="ch14.html"><span class="ch-num">14</span>The Proxy Pattern</a></li>
+        <li><a href="ch15.html"><span class="ch-num">15</span>Squid, Hands-On</a></li>
+        <li><a href="ch16.html" class="current"><span class="ch-num">16</span>Filesystem Configuration</a></li>
+      </ol>
+      <p class="part-label">Part V · Production Deployment</p>
+      <ol>
+        <li><a href="ch17.html"><span class="ch-num">17</span>Hosting the Agent SDK</a></li>
+        <li><a href="ch18.html"><span class="ch-num">18</span>Deploying on Amazon ECS</a></li>
+        <li><a href="ch19.html"><span class="ch-num">19</span>Deploying on AWS Lambda MicroVMs</a></li>
+        <li><a href="ch20.html"><span class="ch-num">20</span>Observability and Audit</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 16 · Part IV — Credentials &amp; the Network Boundary</p>
+      <h1>Filesystem Configuration</h1>
+      <p class="lede">
+        The network boundary from the last two chapters keeps a credential from
+        leaving. The filesystem boundary keeps one from being present in the
+        first place. An agent that mounts your source tree read-only still reads
+        every file in it, and source trees are full of secrets that were never
+        meant to travel: a stray <code>.env</code>, an
+        <code>~/.aws/credentials</code> a script left behind, a private key in a
+        <code>certs/</code> directory. This chapter is the reference for what to
+        mount, what to mount read-only, and what to keep out entirely, plus a
+        pre-flight scanner you can run before any directory becomes a mount.
+      </p>
+
+      <h2>Read-only is the floor, not the ceiling</h2>
+      <p>
+        When the agent analyzes code but should not change it, mount the
+        directory read-only. In Docker that is the <code>:ro</code> suffix on the
+        volume, and it is the same mount chapter 10's hardened container used for
+        <code>/workspace</code>.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">read-only code mount</figcaption>
+        <pre><code class="language-bash">docker run -v /path/to/code:/workspace:ro agent-image</code></pre>
+      </figure>
+      <p>
+        Read-only stops the agent from modifying the code. It does nothing about
+        reading. As the
+        <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment" target="_blank" rel="noopener">secure-deployment guide</a>
+        warns, even read-only access to a code directory can expose credentials,
+        and it gives a specific list of files to exclude or sanitize before
+        mounting. The risk in each case is not subtle: these are files that hold
+        a working credential in plaintext.
+      </p>
+
+      <h2>The exclusion table</h2>
+      <p>
+        This is the guide's list, reproduced so you can check a tree against it.
+        If a mount would include any of these, either the mount is scoped too
+        broadly or the file needs to be removed from what you copy in.
+      </p>
+      <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>File</th><th>What it leaks</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>.env</code>, <code>.env.local</code></td><td>API keys, database passwords, secrets</td></tr>
+          <tr><td><code>~/.git-credentials</code></td><td>Git passwords and tokens in plaintext</td></tr>
+          <tr><td><code>~/.aws/credentials</code></td><td>AWS access keys</td></tr>
+          <tr><td><code>~/.config/gcloud/application_default_credentials.json</code></td><td>Google Cloud ADC tokens</td></tr>
+          <tr><td><code>~/.azure/</code></td><td>Azure CLI credentials</td></tr>
+          <tr><td><code>~/.docker/config.json</code></td><td>Docker registry auth tokens</td></tr>
+          <tr><td><code>~/.kube/config</code></td><td>Kubernetes cluster credentials</td></tr>
+          <tr><td><code>.npmrc</code>, <code>.pypirc</code></td><td>Package registry tokens</td></tr>
+          <tr><td><code>*-service-account.json</code></td><td>GCP service account keys</td></tr>
+          <tr><td><code>*.pem</code>, <code>*.key</code></td><td>Private keys</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>
+        The guide's advice is to copy only the source files you actually need, or
+        apply <code>.dockerignore</code>-style filtering, rather than mounting a
+        home directory or a repo root and hoping it is clean. A scanner that
+        walks the tree and flags these patterns before you wire up the mount
+        turns that advice into something you can put in a build step, which is
+        the example for this chapter.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          The dangerous files are often the ones a glob written for source code
+          skips. A pattern like <code>*.py</code> or <code>src/**</code> looks
+          safe precisely because it never mentions <code>.env</code> or
+          <code>*.key</code>, so the review that approves it never sees them
+          either. The scanner below inverts that: it looks only for the files you
+          do not want, so a clean run is positive evidence rather than the
+          absence of a warning. It reads filenames and paths only, never file
+          contents, so it is safe to point at a tree full of live secrets.
+        </p>
+      </aside>
+
+      <h2>Where the agent is allowed to write</h2>
+      <p>
+        If the agent needs to write, the question is whether those changes should
+        survive the container, and the answer picks the mechanism. The
+        secure-deployment guide lays out three cases.
+      </p>
+      <p>
+        For scratch space that should vanish when the container stops, use a
+        <code>tmpfs</code> mount. It lives in memory and is cleared on stop, and
+        it pairs with a <code>--read-only</code> root so the only writable places
+        are the ones you named. This is the ephemeral-workspace pattern from
+        chapter 10.
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">read-only root with in-memory writable scratch</figcaption>
+        <pre><code class="language-bash">docker run \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=100m \
+  --tmpfs /workspace:rw,noexec,size=500m \
+  agent-image</code></pre>
+      </figure>
+      <p>
+        When you want to review changes before they are real, an overlay
+        filesystem lets the agent write into a separate upper layer without
+        touching the files underneath. You inspect that layer afterward and apply
+        or discard it, which is the natural fit for an agent whose output you do
+        not yet trust. For output that genuinely needs to persist, mount a
+        dedicated volume, and keep it separate from anything sensitive so a write
+        the agent makes cannot land next to a credential.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the repo and Python environment are already set up.
+        </p>
+        <p>
+          Run the pre-flight scanner against any directory:
+          <code>python3 examples/ch16/preflight_scan.py /path/to/code</code>. It
+          walks the tree, prints every file matching the exclusion table, and
+          exits non-zero if it finds any, so it can gate a mount in a build
+          script or CI job. Point it at a temp directory with a planted
+          <code>.env</code> and watch it refuse.
+        </p>
+        <p>
+          Then open <code>challenges/ch16/</code> and implement
+          <code>scan_for_secrets</code> until the tests pass:
+          <code>uv run pytest challenges/ch16</code>. The test builds a real
+          <code>tmp_path</code> tree mixing credential files with innocuous ones
+          (including a <code>kube-config-guide.txt</code> that must not be flagged
+          just because its name contains the word), and checks you return exactly
+          the sensitive paths, sorted.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch15.html"><span class="dir">← Previous</span>Squid, Hands-On</a>
+        <a class="next" href="ch17.html"><span class="dir">Next →</span>Hosting the Agent SDK</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

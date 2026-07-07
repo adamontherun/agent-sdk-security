@@ -1,0 +1,11 @@
+{
+  "//": "REFERENCE MATERIAL, not run on this macOS build machine. This is the",
+  "//2": "Docker daemon config that registers gVisor's runsc runtime. It goes at",
+  "//3": "/etc/docker/daemon.json on a Linux host; `sudo runsc install` writes",
+  "//4": "this block for you. Source: https://gvisor.dev/docs/user_guide/quick_start/docker/",
+  "runtimes": {
+    "runsc": {
+      "path": "/usr/local/bin/runsc"
+    }
+  }
+}

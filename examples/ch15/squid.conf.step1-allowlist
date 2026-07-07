@@ -1,0 +1,29 @@
+# Step 1 — domain allowlisting, no TLS interception yet.
+#
+# The proxy tunnels HTTPS with CONNECT and never decrypts it. It can still
+# enforce a destination allowlist, because the CONNECT request names the host
+# in plaintext (and, for TLS, the SNI does too). This is the cheapest useful
+# control: an agent behind this proxy can reach the hosts you name and nothing
+# else, with no certificate machinery.
+
+# dstdomain matches the request's destination host. A leading dot means "this
+# domain and any subdomain of it": .github.com matches api.github.com and
+# github.com both. example.com with no dot is an exact-host match.
+acl allowed_domains dstdomain .anthropic.com .github.com .httpbin.org example.com mock-api
+
+# Standard safety rails: only allow CONNECT to the TLS port, and only to hosts
+# on the allowlist. Everything else is denied.
+acl SSL_ports port 443
+acl CONNECT method CONNECT
+http_access deny CONNECT !SSL_ports
+
+http_access allow allowed_domains
+http_access deny all
+
+http_port 3128
+
+# One access line per request, in a file we can tail with
+# `docker compose exec squid cat /var/log/squid/access.log`.
+logfile_rotate 0
+access_log stdio:/var/log/squid/access.log
+coredump_dir /var/spool/squid
