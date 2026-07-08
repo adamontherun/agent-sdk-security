@@ -6,15 +6,15 @@
 #                    the running MicroVM. Scoped to nothing beyond logs, since
 #                    credentials reach the agent through the proxy, not the role.
 #
-# The exact service principal that assumes these roles is not published in the
-# launch materials and cannot be confirmed from this machine without live API
-# access. "lambda.amazonaws.com" is the working assumption; verify it against
-# the current IAM docs before an apply, and tighten the trust policy with a
-# condition (aws:SourceArn) once the account and image ARNs are known.
+# These roles are assumed by lambda.amazonaws.com with both sts:AssumeRole and
+# sts:TagSession. That principal and the TagSession requirement were confirmed by
+# running a real build while writing chapter 19: omitting sts:TagSession fails the
+# build. Tighten the trust policy with an aws:SourceArn condition once the account
+# and image ARNs are known, so only your own images can assume the role.
 
 data "aws_iam_policy_document" "microvm_assume" {
   statement {
-    actions = ["sts:AssumeRole"]
+    actions = ["sts:AssumeRole", "sts:TagSession"]
     principals {
       type        = "Service"
       identifiers = ["lambda.amazonaws.com"]

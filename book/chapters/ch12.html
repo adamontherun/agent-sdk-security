@@ -152,12 +152,13 @@
           Firecracker pairs the hardware boundary with a userspace one. The
           <a href="https://github.com/firecracker-microvm/firecracker/blob/main/docs/getting-started.md" target="_blank" rel="noopener">getting-started
           guide</a> says the VMM is designed to run inside an execution jail set up by
-          the <code>jailer</code> binary, which the project describes as a second line
-          of defense in case the virtualization barrier is ever compromised. The jailer
-          applies the ordinary Linux userspace security barriers, namespaces, cgroups,
-          a chroot, dropped privileges, around the Firecracker process, so an escape
-          from the guest still lands inside a locked-down host process rather than on
-          the host proper.
+          the <code>jailer</code> binary. The project's
+          <a href="https://github.com/firecracker-microvm/firecracker/blob/main/docs/design.md" target="_blank" rel="noopener">design
+          documentation</a> presents that jail as an additional layer of defense in
+          depth: it applies the ordinary Linux userspace security barriers, namespaces,
+          cgroups, a chroot, dropped privileges, around the Firecracker process, so an
+          escape from the guest still lands inside a locked-down host process rather
+          than on the host proper.
         </p>
       </aside>
 

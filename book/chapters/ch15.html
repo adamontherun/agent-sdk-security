@@ -231,16 +231,19 @@ curl: (7) CONNECT tunnel failed, response 403
         TLS itself: present the client a certificate for the host it asked for,
         read the plaintext request, then open its own connection to the real
         server. Squid calls this bumping. Modern Squid does it with a step-based
-        model called peek-and-splice, which replaced the older
-        <code>server-first</code>/<code>client-first</code> actions that, in the
-        wiki's own words,
-        <a href="https://wiki.squid-cache.org/Features/SslPeekAndSplice" target="_blank" rel="noopener">did not work well in many cases</a>.
+        model called
+        <a href="https://wiki.squid-cache.org/Features/SslPeekAndSplice" target="_blank" rel="noopener">peek-and-splice</a>,
+        which the wiki introduced to replace the older
+        <code>server-first</code>/<code>client-first</code> actions that it describes
+        as not working well in many cases.
       </p>
       <p>
         The model runs in up to three steps. At step 1 Squid has only the TCP
-        <code>CONNECT</code> and the TLS ClientHello, so it can read the SNI. The
+        <code>CONNECT</code>; the client's TLS ClientHello, with the SNI inside it,
+        comes next. Peeking at step 1 reads that ClientHello, so the SNI is available
+        at step 2, where the bump decision is made. The
         <code>at_step SslBump1</code> ACL matches that first step. The config
-        peeks at step 1 to learn the hostname, then decides: bump anything on
+        peeks at step 1 to pull the hostname forward, then decides: bump anything on
         the allowlist, and terminate anything else. The
         <code>http_port</code> gains the <code>ssl-bump</code> flag and the CA to
         sign forged certificates with, and <code>sslcrtd_program</code> points at

@@ -102,11 +102,11 @@
       <p class="kicker">Chapter 19 · Part V — Production Deployment</p>
       <h1>Deploying on AWS Lambda MicroVMs</h1>
       <p class="lede">
-        Chapter 18 ran the agent on ECS, where a Fargate task shares a kernel with
-        the platform underneath it. This chapter runs it on AWS Lambda MicroVMs, a
-        service that launched in June 2026 and gives every session its own
-        Firecracker microVM with no shared kernel. That is the isolation from
-        chapter 12 turned into a managed API. Because the service is new, this
+        Chapter 18 ran the agent on ECS, where you typically pack many sessions into
+        one long-running task and they share that task's kernel. This chapter runs it
+        on AWS Lambda MicroVMs, a service that launched in June 2026 and gives every
+        session its own Firecracker microVM, so no two sessions share a kernel. That
+        is the isolation from chapter 12 turned into a managed API. Because the service is new, this
         chapter grounds each claim in the current CLI and docs rather than memory,
         and it is honest about one gap: Terraform has no native resource for the
         microVM itself yet, so the lifecycle runs through the
@@ -118,14 +118,15 @@
         <span class="callout-title">⏭ Still evolving</span>
         <p>
           Lambda MicroVMs is weeks old at the time of writing. The specification
-          numbers, region list, and CLI flags in this chapter were re-verified
-          against the AWS CLI on this machine and current AWS pages during drafting,
-          and they matched. A service this young can still move: treat the exact
-          limits as a snapshot, and re-run <code>aws lambda-microvms &lt;cmd&gt; help</code>
-          before you build against a specific flag. Where a detail could not be
-          confirmed from this machine (the IAM service principal that assumes the
-          build and execution roles), the chapter says so rather than guessing with
-          false confidence.
+          numbers, region list, CLI flags, and the whole build-run-connect-terminate
+          lifecycle in this chapter were verified by running them against a real
+          account during drafting, not just read from the docs. That live run also
+          settled the IAM trust principal: the build role is assumed by
+          <code>lambda.amazonaws.com</code> with <code>sts:AssumeRole</code> and
+          <code>sts:TagSession</code>, which the build accepted. A service this young
+          can still move, so treat the exact limits as a snapshot and re-run
+          <code>aws lambda-microvms &lt;cmd&gt; help</code> before you build against a
+          specific flag.
         </p>
       </aside>
 
@@ -176,18 +177,23 @@ aws lambda-microvms get-microvm-image \
       </p>
       <p>
         That sentence is the deciding factor for one specific kind of agent: the one
-        that lets end users submit code for the agent to run. On ECS, a task's
-        containers share a kernel with the Fargate host, and multiple sessions on one
-        long-running container share that container. A guest-kernel exploit or a
-        container escape has somewhere to go. With a microVM per session, a user's
-        untrusted code sees a kernel that is theirs alone, and breaking out means
-        breaking the hypervisor, not a namespace.
+        that lets end users submit code for the agent to run. Fargate already runs
+        each task in its own Firecracker microVM, so the task is isolated from the
+        host. The gap is granularity: you normally pack many user sessions into one
+        long-running task, and those sessions share that task's kernel and its
+        containers. A guest-kernel exploit or a container escape between sessions has
+        somewhere to go. With a microVM per session, a user's untrusted code sees a
+        kernel that is theirs alone, and breaking out means breaking the hypervisor,
+        not a namespace shared with another tenant.
       </p>
 
       <h2>The lifecycle: run, suspend, resume</h2>
       <p>
         <code>run-microvm</code> launches a microVM from an image; it starts in
-        <code>PENDING</code> and moves to <code>RUNNING</code>. Two flags carry the
+        <code>PENDING</code> and moves to <code>RUNNING</code>. Reachability comes from
+        the two network-connector flags, not from a security group: the Lambda-managed
+        <code>ALL_INGRESS</code> connector lets HTTPS in, and
+        <code>INTERNET_EGRESS</code> lets the app reach out. Two more flags carry the
         cost and safety controls. An <code>--idle-policy</code> auto-suspends the
         microVM after an idle window and can auto-resume it on the next request, and
         <code>--maximum-duration-in-seconds</code> caps the total runtime. The CLI
@@ -198,13 +204,15 @@ aws lambda-microvms get-microvm-image \
 
       <figure class="codeblock">
         <figcaption class="code-label">examples/ch19/scripts/lifecycle.sh (excerpt)</figcaption>
-        <pre><code class="language-bash"># Launch. Auto-suspend after 15 min idle, auto-resume on request,
-# runtime capped at the 8-hour maximum (28,800 s).
+        <pre><code class="language-bash"># Launch. Managed connectors carry ingress/egress; auto-suspend after 15 min
+# idle, auto-resume on request, runtime capped at the 8-hour maximum (28,800 s).
+CONN="arn:aws:lambda:${REGION}:aws:network-connector:aws-network-connector"
 MICROVM_ID=$(aws lambda-microvms run-microvm \
   --region "$REGION" \
-  --image-identifier "$IMAGE_ID" \
-  --execution-role-arn "$EXEC_ROLE_ARN" \
-  --idle-policy 'maxIdleDurationSeconds=900,suspendedDurationSeconds=300,autoResumeEnabled=true' \
+  --image-identifier "$IMAGE_ARN" \
+  --ingress-network-connectors "${CONN}:ALL_INGRESS" \
+  --egress-network-connectors "${CONN}:INTERNET_EGRESS" \
+  --idle-policy '{"autoResumeEnabled":true,"maxIdleDurationSeconds":900,"suspendedDurationSeconds":300}' \
   --maximum-duration-in-seconds 28800 \
   --query 'microvmId' --output text)
 
@@ -223,25 +231,54 @@ MICROVM_ID=$(aws lambda-microvms run-microvm \
 
       <h2>Reaching the microVM: short-lived tokens</h2>
       <p>
-        A running microVM is not on the open internet. To talk to it you mint a
-        short-lived token with <code>create-microvm-auth-token</code>, scoped to
-        specific ports and expiring in at most 60 minutes, then attach it to a plain
-        HTTPS request in the <code>X-aws-proxy-auth</code> header. The token, not a
-        security group, is what gates access, which suits a per-session model where
-        sessions come and go faster than firewall rules would.
+        A running microVM has a public HTTPS endpoint, but there is no unauthenticated
+        way in. To talk to it you mint a short-lived token with
+        <code>create-microvm-auth-token</code>, scoped to specific ports and expiring in
+        at most 60 minutes, then attach it to a plain HTTPS request in the
+        <code>X-aws-proxy-auth</code> header. The token, not a security group, is what
+        gates access, which suits a per-session model where sessions come and go faster
+        than firewall rules would. A request with no token is rejected outright.
       </p>
 
       <figure class="codeblock">
         <figcaption class="code-label">examples/ch19/scripts/lifecycle.sh (excerpt)</figcaption>
-        <pre><code class="language-bash">TOKEN=$(aws lambda-microvms create-microvm-auth-token \
+        <pre><code class="language-bash"># The token comes back under authToken, keyed by the header name it belongs in.
+TOKEN=$(aws lambda-microvms create-microvm-auth-token \
   --region "$REGION" \
   --microvm-identifier "$MICROVM_ID" \
   --expiration-in-minutes 15 \
-  --allowed-ports 'port=8080' \
-  --query 'token' --output text)
+  --allowed-ports '[{"allPorts":{}}]' \
+  --query 'authToken."X-aws-proxy-auth"' --output text)
 
 curl --header "X-aws-proxy-auth: $TOKEN" "https://${ENDPOINT}/health"</code></pre>
       </figure>
+
+      <p>
+        The whole lifecycle above was run end to end against a real account while
+        writing this chapter, from a Python app packaged exactly as
+        <a href="https://docs.aws.amazon.com/lambda/latest/dg/microvms-getting-started.html" target="_blank" rel="noopener">the getting-started guide</a>
+        describes. The running microVM reported its own kernel, which is the isolation
+        claim made concrete: an Amazon Linux 2023 ARM64 guest kernel that belongs to
+        that microVM alone, with the app as PID 1.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">curl https://&lt;endpoint&gt;/health -H "X-aws-proxy-auth: $TOKEN"</figcaption>
+        <pre><code class="language-json">{"status": "ok", "path": "/health", "hostname": "localhost",
+ "kernel": "6.1.166-24.303.amzn2023.aarch64", "machine": "aarch64",
+ "pid1_is_me": true}</code></pre>
+      </figure>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          The same endpoint with no token answers <code>403</code>. Every microVM gets
+          a public HTTPS URL, so the token is the entire access control: there is no
+          unauthenticated path in, and no security group to misconfigure. Mint tokens
+          short-lived and per session, and treat a leaked token like a leaked
+          credential, because for the 60 minutes it lives, it is one.
+        </p>
+      </aside>
 
       <h2>Specs and limits at launch</h2>
       <p>
@@ -299,14 +336,14 @@ total aws resources: 1526</code></pre>
       <aside class="callout gotcha">
         <span class="callout-title">⚠ Gotcha</span>
         <p>
-          The service principal that assumes the build and execution roles is not
-          stated in the launch materials, and it cannot be confirmed from this
-          machine without live API access. The Terraform uses
-          <code>lambda.amazonaws.com</code> as a working assumption and says so in a
-          comment. Confirm it against the current IAM docs before an
-          <code>apply</code>, and tighten the trust policy with an
-          <code>aws:SourceArn</code> condition once you know the account and image
-          ARNs. Do not ship a trust policy you have not verified.
+          The build role's trust policy is easy to get subtly wrong. The
+          <a href="https://docs.aws.amazon.com/lambda/latest/dg/microvms-getting-started.html" target="_blank" rel="noopener">getting-started
+          guide</a> shows <code>lambda.amazonaws.com</code> assuming it with both
+          <code>sts:AssumeRole</code> and <code>sts:TagSession</code>, and a build fails
+          if you omit <code>sts:TagSession</code>. That is what the Terraform here uses,
+          and what the live build in this chapter ran against. Once you know your
+          account and image ARNs, tighten it further with an <code>aws:SourceArn</code>
+          condition so only your own images can assume the role.
         </p>
       </aside>
 

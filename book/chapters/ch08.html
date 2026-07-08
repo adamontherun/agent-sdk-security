@@ -137,13 +137,15 @@
         </tbody>
       </table>
 
-      <h2>The managed-only keys worth knowing</h2>
+      <h2>The lockdown keys worth knowing</h2>
       <p>
-        A set of keys is
-        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">read only from managed settings</a>;
+        Most of the keys below are
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">read only from managed settings</a>:
         placing them in a user or project file does nothing. The full table is
         long, so here are the ones a hardening operator reaches for, and what each
-        one buys.
+        one buys. One, <code>disableBypassPermissionsMode</code>, is the exception:
+        it works from any scope, but managed is where you pin it so a developer
+        can't set it back.
       </p>
       <table>
         <thead><tr><th>Key</th><th>Effect</th></tr></thead>
@@ -157,33 +159,38 @@
         </tbody>
       </table>
       <p>
-        The pairing that does the real work is
-        <code>allowManagedPermissionRulesOnly</code> with a managed deny list.
-        The first makes your managed rules the <em>only</em> allow and ask rules
-        in effect; the second, because deny still merges from every scope and
-        deny beats allow, means nobody can grant a capability you forbade. Note
-        the asymmetry the docs preserve on purpose: even under
-        <code>allowManagedPermissionRulesOnly</code>, deny rules from user and
-        project settings still merge in. A developer can always add a restriction;
-        they just can't remove one.
+        Two different guarantees are easy to conflate here, so keep them apart.
+        The first is the ordinary precedence rule, which holds whether or not any
+        managed flag is set: deny beats allow from every scope, so a developer can
+        always <em>tighten</em> policy by adding a deny, and can never widen past a
+        managed deny. That is the one-way ratchet. The second is
+        <code>allowManagedPermissionRulesOnly</code>, which is stricter still. The
+        <a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">docs</a>
+        state it "prevents user and project settings from defining allow, ask, or
+        deny permission rules. Only rules in managed settings apply." So under this
+        flag even a developer's own deny is dropped: managed settings become the
+        sole source of every allow, ask, and deny rule. It is a stronger lock than
+        the ratchet, not the same lock.
       </p>
 
       <h2>Watch the precedence resolve</h2>
       <p>
         The reference model in <code>solutions/ch08.py</code> resolves a stack of
         scopes into one effective policy.
-        <code>examples/ch08/precedence_demo.py</code> runs the adversarial case: a
-        locked-down managed policy, and a developer's user settings trying to
-        loosen it by allowing <code>curl</code> and <code>rm</code> and switching
-        to bypass mode.
+        <code>examples/ch08/precedence_demo.py</code> runs the same adversarial
+        user settings twice, once without the flag and once with it, so the two
+        guarantees are side by side. The developer tries to loosen policy by
+        allowing <code>curl</code> and <code>rm</code> and switching to bypass
+        mode, and also adds a deny of their own.
       </p>
 
       <figure class="codeblock">
         <figcaption class="code-label">python3 examples/ch08/precedence_demo.py</figcaption>
-        <pre><code class="language-json">effective policy:
+        <pre><code class="language-json">A. normal precedence (developer can tighten, not loosen):
 {
   "allow": [
-    "Bash(npm run test:*)"
+    "Bash(npm run test:*)",
+    "Bash(rm *)"
   ],
   "ask": [],
   "deny": [
@@ -192,20 +199,42 @@
   ],
   "defaultMode": "default",
   "bypassAllowed": false
+}
+
+B. allowManagedPermissionRulesOnly (only managed rules apply):
+{
+  "allow": [
+    "Bash(npm run test:*)"
+  ],
+  "ask": [],
+  "deny": [
+    "Bash(curl *)"
+  ],
+  "defaultMode": "default",
+  "bypassAllowed": false
 }</code></pre>
       </figure>
 
       <p>
-        Every attempt to loosen policy failed, and one attempt to tighten it
-        succeeded. The user's <code>Bash(curl *)</code> and <code>Bash(rm *)</code>
-        allows vanished, because <code>allowManagedPermissionRulesOnly</code>
-        dropped all non-managed allow rules. The user's
-        <code>bypassPermissions</code> default collapsed to <code>default</code>,
-        because managed <code>disableBypassPermissionsMode</code> forbids it. But
-        the user's own <code>Read(./.env)</code> deny survived into the effective
-        deny list, because a developer is always allowed to restrict further. That
-        asymmetry is the whole design: policy flows down and can only be made
-        stricter on the way.
+        Case A is the ratchet. The developer's <code>Bash(curl *)</code> allow
+        vanished because a managed deny outranks it, but their <code>Bash(rm *)</code>
+        allow survived, since nothing denies <code>rm</code> and allow rules merge
+        across scopes when the flag is off. Their <code>bypassPermissions</code>
+        default collapsed to <code>default</code> under managed
+        <code>disableBypassPermissionsMode</code>, and their own
+        <code>Read(./.env)</code> deny survived, because tightening is always
+        allowed. A developer can add restrictions and can pick up allows the policy
+        does not forbid; they cannot punch through a managed deny.
+      </p>
+      <p>
+        Case B adds <code>allowManagedPermissionRulesOnly</code> and the picture
+        changes. The <code>Bash(rm *)</code> allow is gone, and so is the
+        developer's <code>Read(./.env)</code> deny. Only the managed rules remain:
+        managed's <code>Bash(curl *)</code> deny and its
+        <code>Bash(npm run test:*)</code> allow. This is the stronger lock. When you
+        need the fleet's rule set to be exactly what you shipped and nothing a
+        repository or a developer adds, this is the flag that delivers it, at the
+        cost of the developers' ability to tighten locally too.
       </p>
 
       <h2>A hardened managed-settings.json</h2>
@@ -293,14 +322,16 @@
       <aside class="callout underhood">
         <span class="callout-title">🔬 Under the hood</span>
         <p>
-          Every lockdown in this chapter is a one-way ratchet toward stricter, and
-          that's not a coincidence. Deny merges from all scopes and beats allow;
-          the managed-only flags remove other scopes' ability to grant without
-          touching their ability to restrict; workspace trust withholds granted
+          Authority in this chapter flows downward, and that's not a coincidence.
+          Deny merges from all scopes and beats allow, so any scope can tighten and
+          none can widen past a managed deny; workspace trust withholds granted
           capability until a human consents; the embedder merge tightens but never
-          loosens. The system is built so authority flows downward and can only
-          subtract. Design your policy assuming every scope below you is
-          adversarial, and the mechanics are on your side.
+          loosens. <code>allowManagedPermissionRulesOnly</code> is the one control
+          that goes further than the ratchet: it doesn't just stop lower scopes from
+          granting, it stops them from contributing any rule at all, so managed
+          settings become the sole authority rather than the top of a stack. Design
+          your policy assuming every scope below you is adversarial, and the
+          mechanics are on your side.
         </p>
       </aside>
 
@@ -311,9 +342,10 @@
         </p>
         <p>
           Run <code>python3 examples/ch08/precedence_demo.py</code>, then edit the
-          scenario: give the user a <code>deny</code> the managed policy doesn't
-          have, and confirm it survives. Add a managed <code>ask</code> rule and
-          watch where it lands.
+          scenarios: give the user a <code>deny</code> the managed policy doesn't
+          have, and confirm it survives in case A but is dropped in case B once
+          <code>allowManagedPermissionRulesOnly</code> is set. Add a managed
+          <code>ask</code> rule and watch where it lands.
         </p>
         <p>
           Then open <code>challenges/ch08/challenge.py</code> and implement

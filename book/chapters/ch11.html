@@ -142,7 +142,8 @@
         Filesystem access is split off into a second process, the Gofer. The docs
         describe it as a standard host process started with each container that
         communicates with the Sentry over the 9P protocol on a socket or shared memory
-        channel. The Sentry itself runs in a restricted seccomp container with no
+        channel (9P historically; recent gVisor defaults to its own LISAFS protocol on
+        that channel, though the trust boundary is unchanged). The Sentry itself runs in a restricted seccomp container with no
         direct filesystem access, so a compromise of the Sentry does not hand an
         attacker the host's files; it would still have to go through the Gofer's
         mediated interface. Two processes with narrow, separate jobs is the shape of

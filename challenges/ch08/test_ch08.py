@@ -33,16 +33,29 @@ def test_managed_only_drops_local_allow(subject):
     assert out["allow"] == ["Bash(git *)"]
 
 
-def test_managed_only_still_merges_deny(subject):
+def test_managed_only_drops_user_deny(subject):
+    # allowManagedPermissionRulesOnly drops user/project allow, ask, AND deny
+    # rules: only managed rules apply. A user deny does not survive it.
     scopes = {
         "managed": {
-            "permissions": {},
+            "permissions": {"deny": ["Bash(curl *)"]},
             "allowManagedPermissionRulesOnly": True,
         },
         "user": {"permissions": {"deny": ["Bash(rm *)"]}},
     }
     out = subject.resolve(scopes)
-    assert "Bash(rm *)" in out["deny"]
+    assert out["deny"] == ["Bash(curl *)"]
+    assert "Bash(rm *)" not in out["deny"]
+
+
+def test_deny_merges_across_scopes_without_flag(subject):
+    # Without the flag, a developer can always tighten: a user deny merges in.
+    scopes = {
+        "managed": {"permissions": {"deny": ["Bash(curl *)"]}},
+        "user": {"permissions": {"deny": ["Bash(rm *)"]}},
+    }
+    out = subject.resolve(scopes)
+    assert set(out["deny"]) == {"Bash(curl *)", "Bash(rm *)"}
 
 
 def test_default_mode_highest_scope_wins(subject):

@@ -2,9 +2,10 @@
 
 A teaching model of how Claude Code resolves permission rules across settings
 scopes. Precedence, highest to lowest: managed, cli, local, shared, user. Deny
-rules from any scope always win; a managed-only flag can drop everyone else's
-allow/ask rules; and disableBypassPermissionsMode removes bypass from the
-effective mode.
+rules from any scope beat allow, so a developer can always tighten policy;
+allowManagedPermissionRulesOnly is stricter still, dropping every non-managed
+allow, ask, AND deny rule so only managed rules apply; and
+disableBypassPermissionsMode removes bypass from the effective mode.
 
 Sources:
   https://code.claude.com/docs/en/permissions  (settings precedence, managed-only)
@@ -45,13 +46,16 @@ def resolve(scopes: dict) -> dict:
             if r not in ask:
                 ask.append(r)
 
-    # Deny always merges from every scope, even under allowManagedPermissionRulesOnly.
+    # Deny normally merges from every scope: a developer can always tighten by
+    # adding a deny, even when they cannot widen. allowManagedPermissionRulesOnly
+    # is stricter still. It drops user and project allow, ask, AND deny rules, so
+    # only managed rules apply. Deny follows the same rule_scopes restriction as
+    # allow and ask under that flag.
     deny: list[str] = []
-    for name in SCOPE_ORDER:
-        if name in scopes:
-            for r in _rules(scopes[name], "deny"):
-                if r not in deny:
-                    deny.append(r)
+    for name in rule_scopes:
+        for r in _rules(scopes[name], "deny"):
+            if r not in deny:
+                deny.append(r)
 
     # A denied rule can't also be allowed or asked: deny wins.
     deny_set = set(deny)
