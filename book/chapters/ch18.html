@@ -107,11 +107,12 @@
         it should be: no direct route to the internet, a Squid egress proxy running
         beside it as a sidecar, and two IAM roles that each hold only what they
         need. The whole thing is real Terraform in
-        <code>examples/ch18/terraform/</code>, and it passes
+        <code>examples/ch18/terraform/</code>. It passes
         <code>terraform validate</code> and <code>terraform fmt -check</code> against
-        Terraform 1.10.4 with the actual AWS provider. You will not deploy it here
-        (that needs an AWS account), but every resource is schema-valid and ready to
-        plan against one.
+        Terraform 1.10.4 with the actual AWS provider, and it was applied to a real
+        account so the allowlist and the no-egress boundary could be watched working,
+        not just asserted. You need your own AWS account to deploy it, but nothing
+        here is hypothetical.
       </p>
 
       <h2>The architecture, and why this shape</h2>
@@ -288,13 +289,68 @@ Success! The configuration is valid.</code></pre>
       </figure>
 
       <p>
-        This is syntax and schema validation, not a live deployment. It confirms the
-        resources reference real arguments with the right types and that the graph
-        wires together, which is what catches the class of mistakes that would
-        otherwise surface halfway through an <code>apply</code>. Running an actual
-        <code>plan</code> or <code>apply</code> needs AWS credentials and is out of
-        scope for the course build.
+        Validation confirms the resources reference real arguments with the right
+        types and that the graph wires together, which catches the class of mistake
+        that would otherwise surface halfway through an <code>apply</code>. It does
+        not confirm the thing you actually care about: that a running agent in this
+        task can reach only what the allowlist permits.
       </p>
+
+      <h2>Proving it on a real account</h2>
+      <p>
+        So this stack was applied for real, with a throwaway probe container in place
+        of the agent. The probe reads the same <code>HTTP_PROXY</code> the task
+        definition sets, then tries three requests: an allowlisted host, a
+        non-allowlisted host, and a direct connection that bypasses the proxy
+        entirely. The output is the security posture stated as behavior.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">agent container logs (CloudWatch)</figcaption>
+        <pre><code class="language-text">PROBE proxy=http://localhost:3128
+PROBE allowlisted (github.com) — expect success:
+  github.com -> HTTP 200
+PROBE non-allowlisted (example.com) — expect proxy block:
+  example.com -> HTTP 000
+PROBE direct egress bypassing proxy (expect timeout under no-egress SG):
+  direct -> blocked (curl exit 28)</code></pre>
+      </figure>
+
+      <p>
+        The Squid sidecar's own access log shows the two proxied requests resolving in
+        opposite directions: github tunnelled out, example refused.
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">squid container logs (CloudWatch)</figcaption>
+        <pre><code class="language-text">::1 TCP_TUNNEL/200 594628 CONNECT github.com:443 - HIER_DIRECT/140.82.113.4
+::1 TCP_DENIED/403   3442 CONNECT example.com:443 - HIER_NONE/-</code></pre>
+      </figure>
+
+      <p>
+        Allowlisted egress works, non-allowlisted egress is denied at the proxy, and a
+        direct connection that ignores the proxy dies at the security group. That is
+        the whole chapter in three lines of output.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Three things this deployment needed were invisible to
+          <code>terraform validate</code> and only showed up under a real
+          <code>apply</code>, all of them in the sidecar. The
+          <code>ubuntu/squid</code> image's foreground process exits on startup if
+          <code>access_log</code> writes straight to <code>/dev/stdout</code>, so the
+          config logs to a file the image's own entrypoint already tails to stdout. The
+          image ships neither <code>squidclient</code> nor <code>curl</code>, so the
+          container health check is a dependency-free bash <code>/dev/tcp</code> probe
+          rather than a manager query. And an agent that dials
+          <code>localhost:3128</code> connects over IPv6 <code>::1</code>, so the
+          source ACL has to include <code>::1</code> or Squid silently denies every
+          request, allowlisted or not. Schema validation is necessary; it is not the
+          same as watching the thing run.
+        </p>
+      </aside>
 
       <div class="tryit">
         <h3>⚡ Try it</h3>

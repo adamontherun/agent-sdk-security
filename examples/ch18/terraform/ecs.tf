@@ -73,8 +73,12 @@ resource "aws_ecs_task_definition" "agent" {
         }
       ]
 
+      # A dependency-free readiness probe: bash opens a TCP connection to the
+      # proxy port and exits non-zero if nothing is listening. The ubuntu/squid
+      # image ships bash but not squidclient or curl, so a manager query or an
+      # HTTP probe would fail on a missing binary rather than on proxy state.
       healthCheck = {
-        command  = ["CMD-SHELL", "squidclient -h 127.0.0.1 mgr:info || exit 1"]
+        command  = ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/3128' || exit 1"]
         interval = 15
         timeout  = 5
         retries  = 3
