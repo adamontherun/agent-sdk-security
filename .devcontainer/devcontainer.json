@@ -12,7 +12,10 @@
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {},
     "ghcr.io/va-h/devcontainers-features/uv:1": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    // moby:false installs upstream Docker CE instead of Moby. The python:3.12
+    // base now resolves to Debian trixie, where the Moby packages this feature
+    // installs by default don't exist, so the build fails without this.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": { "moby": false },
     "ghcr.io/devcontainers/features/aws-cli:1": {},
     "ghcr.io/devcontainers/features/terraform:1": {}
   },
