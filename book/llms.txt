@@ -1,0 +1,45 @@
+# Agent SDK Security
+
+> A hands-on course on securing Claude Agent SDK deployments: the permission pipeline, OS-level sandboxing, container and microVM isolation, and a real Squid egress proxy you build and run, ending in production deployments on Amazon ECS and AWS Lambda MicroVMs.
+
+Every load-bearing claim is cited to fetched documentation, every code example is run before it is shown, and every chapter ships a failing-test challenge with a reference solution; the ECS and Lambda MicroVMs deployments were applied against a real AWS account and torn down.
+
+## Part I · Threat Model & Foundations
+
+- [Why Agent Security Is Different](https://adamontherun.github.io/agent-sdk-security/chapters/ch01.html): Prompt injection, the lethal trifecta, and why an agent's behavior can't be fully predicted from its code.
+- [Built-In Defenses, A Tour](https://adamontherun.github.io/agent-sdk-security/chapters/ch02.html): What Claude Code and the Agent SDK already protect against, before you configure anything.
+- [Security Principles: Boundaries, Least Privilege, Defense in Depth](https://adamontherun.github.io/agent-sdk-security/chapters/ch03.html): The three ideas that every hardening decision in this course traces back to.
+
+## Part II · Permissions & Settings
+
+- [The Permission Evaluation Pipeline](https://adamontherun.github.io/agent-sdk-security/chapters/ch04.html): How a single tool call moves through hooks, deny, ask, mode, allow, and canUseTool — in Claude Code and in the SDK.
+- [Permission Modes Compared](https://adamontherun.github.io/agent-sdk-security/chapters/ch05.html): default, acceptEdits, plan, auto, dontAsk, bypassPermissions — what each one actually auto-approves, and where it's safe to use them.
+- [Tool-Specific Rules: Bash, Files, Web, MCP](https://adamontherun.github.io/agent-sdk-security/chapters/ch06.html): Writing rules that hold up: wildcard semantics, path anchoring, domain matching, and the ones that look safe but aren't.
+- [Hooks as a Security Control](https://adamontherun.github.io/agent-sdk-security/chapters/ch07.html): PreToolUse hooks and canUseTool as the layer that catches what rules can't express.
+- [Managed Settings & Organization Policy](https://adamontherun.github.io/agent-sdk-security/chapters/ch08.html): Settings precedence, managed-only keys, and locking a fleet down so individual settings can't loosen it.
+
+## Part III · Isolation Technologies
+
+- [The Built-In Sandbox](https://adamontherun.github.io/agent-sdk-security/chapters/ch09.html): bubblewrap and Seatbelt: OS-level filesystem and network isolation for the Bash tool, and where its guarantees end.
+- [Hardened Containers](https://adamontherun.github.io/agent-sdk-security/chapters/ch10.html): Building a Docker container an agent can't escape: capabilities, seccomp, read-only root, and a socket instead of a network interface.
+- [gVisor](https://adamontherun.github.io/agent-sdk-security/chapters/ch11.html): A userspace kernel between the agent and yours — what it buys you and what it costs.
+- [MicroVMs and Firecracker](https://adamontherun.github.io/agent-sdk-security/chapters/ch12.html): Hardware-level isolation without the weight of a full VM, and how AWS Lambda MicroVMs turns it into a managed primitive.
+- [Choosing an Isolation Strategy](https://adamontherun.github.io/agent-sdk-security/chapters/ch13.html): A decision framework for picking sandbox, container, gVisor, or microVM against your actual threat model.
+
+## Part IV · Credentials & the Network Boundary
+
+- [The Proxy Pattern](https://adamontherun.github.io/agent-sdk-security/chapters/ch14.html): Why a credential the agent never holds is a credential it can never leak.
+- [Squid, Hands-On](https://adamontherun.github.io/agent-sdk-security/chapters/ch15.html): Build a real allowlisting egress proxy: ACLs, SSL-bump TLS interception, and credential injection.
+- [Filesystem Configuration](https://adamontherun.github.io/agent-sdk-security/chapters/ch16.html): What never gets mounted, what gets mounted read-only, and how to let an agent write without trusting what it wrote.
+
+## Part V · Production Deployment
+
+- [Hosting the Agent SDK](https://adamontherun.github.io/agent-sdk-security/chapters/ch17.html): The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host.
+- [Deploying on Amazon ECS](https://adamontherun.github.io/agent-sdk-security/chapters/ch18.html): A Fargate task definition with no direct internet egress, a Squid sidecar, and IAM scoped to exactly what the agent needs.
+- [Deploying on AWS Lambda MicroVMs](https://adamontherun.github.io/agent-sdk-security/chapters/ch19.html): The image-then-launch model, per-session isolation, and when it beats ECS for agent workloads.
+- [Observability and Audit](https://adamontherun.github.io/agent-sdk-security/chapters/ch20.html): What to log at the proxy, what to export over OTEL, and how to find out something went wrong before a user tells you.
+
+## Optional
+
+- [Source repo](https://github.com/adamontherun/agent-sdk-security): runnable examples, failing-test challenges, and reference solutions
+- [Open in GitHub Codespaces](https://codespaces.new/adamontherun/agent-sdk-security): zero-install environment with the Python toolchain, Docker, the AWS CLI, and Terraform already installed

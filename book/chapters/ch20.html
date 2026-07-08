@@ -8,21 +8,21 @@
 <meta name="keywords" content="Claude Agent SDK, OpenTelemetry, observability, audit, Squid access log, incident response, prompt injection, credential rotation, ECS, Fargate, AWS Lambda MicroVMs, Terraform">
 <meta name="author" content="Adam Smith">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="{{PAGES_URL}}chapters/ch20.html">
+<link rel="canonical" href="https://adamontherun.github.io/agent-sdk-security/chapters/ch20.html">
 
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Agent SDK Security">
 <meta property="og:title" content="Ch 20 · Observability and Audit — Agent SDK Security">
 <meta property="og:description" content="OTEL wiring for the Agent SDK, proxy logs as the network audit trail, credential rotation, and the first moves when you suspect a prompt-injection-driven action. Chapter 20 of Agent SDK Security, Part V · Production Deployment.">
-<meta property="og:url" content="{{PAGES_URL}}chapters/ch20.html">
-<meta property="og:image" content="{{OG_IMAGE_URL}}">
-<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
-<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+<meta property="og:url" content="https://adamontherun.github.io/agent-sdk-security/chapters/ch20.html">
+<meta property="og:image" content="https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="900">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ch 20 · Observability and Audit — Agent SDK Security">
 <meta name="twitter:description" content="OTEL wiring for the Agent SDK, proxy logs as the network audit trail, credential rotation, and the first moves when you suspect a prompt-injection-driven action. Chapter 20 of Agent SDK Security, Part V · Production Deployment.">
-<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="twitter:image" content="https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png">
 <meta name="theme-color" content="#c0392b">
 <script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
 <link rel="stylesheet" href="../assets/style.css">
@@ -33,11 +33,11 @@
   "position": 20,
   "name": "Observability and Audit",
   "description": "What to log at the proxy, what to export over OTEL, and how to find out something went wrong before a user tells you.",
-  "url": "{{PAGES_URL}}chapters/ch20.html",
-  "image": "{{OG_IMAGE_URL}}",
+  "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch20.html",
+  "image": "https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png",
   "inLanguage": "en",
-  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
-  "previousItem": "{{PAGES_URL}}chapters/ch19.html"
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "https://adamontherun.github.io/agent-sdk-security/"},
+  "previousItem": "https://adamontherun.github.io/agent-sdk-security/chapters/ch19.html"
 }
 </script>
 </head>
@@ -49,8 +49,8 @@
     <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
 
     <div class="sidebar-links">
-      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
-      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+      <a class="codespace-link" href="https://codespaces.new/adamontherun/agent-sdk-security" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="https://github.com/adamontherun/agent-sdk-security" target="_blank" rel="noopener">GitHub repo &#8599;</a>
     </div>
 
     <nav aria-label="Chapters">
@@ -294,7 +294,7 @@
       <div class="tryit">
         <h3>⚡ Try it</h3>
         <p class="tryit-env">
-          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — both examples are plain Python, no Claude session or network needed.
+          No local setup? <a href="https://codespaces.new/adamontherun/agent-sdk-security" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — both examples are plain Python, no Claude session or network needed.
         </p>
         <p>
           Run the triage tool against the sample proxy log:

@@ -8,21 +8,21 @@
 <meta name="keywords" content="Claude Agent SDK, Claude Code, AI agent security, prompt injection, sandboxing, gVisor, Firecracker, Squid proxy, AWS Lambda MicroVMs, Amazon ECS, permissions, least privilege">
 <meta name="author" content="Adam Smith">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="{{PAGES_URL}}">
+<link rel="canonical" href="https://adamontherun.github.io/agent-sdk-security/">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Agent SDK Security">
 <meta property="og:title" content="Agent SDK Security — Permissions, sandboxing, and network isolation for production Claude deployments">
 <meta property="og:description" content="A hands-on course on securing Claude Agent SDK deployments: the permission pipeline, OS-level sandboxing, container and microVM isolation, a Squid egress proxy you build yourself, and production deployment on Amazon ECS and AWS Lambda MicroVMs.">
-<meta property="og:url" content="{{PAGES_URL}}">
-<meta property="og:image" content="{{OG_IMAGE_URL}}">
-<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
-<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+<meta property="og:url" content="https://adamontherun.github.io/agent-sdk-security/">
+<meta property="og:image" content="https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="900">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Agent SDK Security — Permissions, sandboxing, and network isolation for production Claude deployments">
 <meta name="twitter:description" content="A hands-on course on securing Claude Agent SDK deployments: the permission pipeline, OS-level sandboxing, container and microVM isolation, a Squid egress proxy you build yourself, and production deployment on Amazon ECS and AWS Lambda MicroVMs.">
-<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="twitter:image" content="https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png">
 <meta name="theme-color" content="#c0392b">
 <script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
 <link rel="stylesheet" href="assets/style.css">
@@ -32,32 +32,32 @@
   "@type": "Course",
   "name": "Agent SDK Security",
   "description": "A hands-on course on securing Claude Agent SDK deployments: the permission pipeline, OS-level sandboxing, container and microVM isolation, a Squid egress proxy you build yourself, and production deployment on Amazon ECS and AWS Lambda MicroVMs.",
-  "url": "{{PAGES_URL}}",
-  "image": "{{OG_IMAGE_URL}}",
-  "provider": {"@type": "Person", "name": "Adam Smith", "url": "{{AUTHOR_URL}}"},
+  "url": "https://adamontherun.github.io/agent-sdk-security/",
+  "image": "https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png",
+  "provider": {"@type": "Person", "name": "Adam Smith", "url": "https://github.com/adamontherun"},
   "isAccessibleForFree": true,
   "inLanguage": "en",
   "hasPart": [
-    {"@type": "Chapter", "position": 1, "name": "Why Agent Security Is Different", "description": "Prompt injection, the lethal trifecta, and why an agent's behavior can't be fully predicted from its code.", "url": "{{PAGES_URL}}chapters/ch01.html"},
-    {"@type": "Chapter", "position": 2, "name": "Built-In Defenses, A Tour", "description": "What Claude Code and the Agent SDK already protect against, before you configure anything.", "url": "{{PAGES_URL}}chapters/ch02.html"},
-    {"@type": "Chapter", "position": 3, "name": "Security Principles: Boundaries, Least Privilege, Defense in Depth", "description": "The three ideas that every hardening decision in this course traces back to.", "url": "{{PAGES_URL}}chapters/ch03.html"},
-    {"@type": "Chapter", "position": 4, "name": "The Permission Evaluation Pipeline", "description": "How a single tool call moves through hooks, deny, ask, mode, allow, and canUseTool — in Claude Code and in the SDK.", "url": "{{PAGES_URL}}chapters/ch04.html"},
-    {"@type": "Chapter", "position": 5, "name": "Permission Modes Compared", "description": "default, acceptEdits, plan, auto, dontAsk, bypassPermissions — what each one actually auto-approves, and where it's safe to use them.", "url": "{{PAGES_URL}}chapters/ch05.html"},
-    {"@type": "Chapter", "position": 6, "name": "Tool-Specific Rules: Bash, Files, Web, MCP", "description": "Writing rules that hold up: wildcard semantics, path anchoring, domain matching, and the ones that look safe but aren't.", "url": "{{PAGES_URL}}chapters/ch06.html"},
-    {"@type": "Chapter", "position": 7, "name": "Hooks as a Security Control", "description": "PreToolUse hooks and canUseTool as the layer that catches what rules can't express.", "url": "{{PAGES_URL}}chapters/ch07.html"},
-    {"@type": "Chapter", "position": 8, "name": "Managed Settings & Organization Policy", "description": "Settings precedence, managed-only keys, and locking a fleet down so individual settings can't loosen it.", "url": "{{PAGES_URL}}chapters/ch08.html"},
-    {"@type": "Chapter", "position": 9, "name": "The Built-In Sandbox", "description": "bubblewrap and Seatbelt: OS-level filesystem and network isolation for the Bash tool, and where its guarantees end.", "url": "{{PAGES_URL}}chapters/ch09.html"},
-    {"@type": "Chapter", "position": 10, "name": "Hardened Containers", "description": "Building a Docker container an agent can't escape: capabilities, seccomp, read-only root, and a socket instead of a network interface.", "url": "{{PAGES_URL}}chapters/ch10.html"},
-    {"@type": "Chapter", "position": 11, "name": "gVisor", "description": "A userspace kernel between the agent and yours — what it buys you and what it costs.", "url": "{{PAGES_URL}}chapters/ch11.html"},
-    {"@type": "Chapter", "position": 12, "name": "MicroVMs and Firecracker", "description": "Hardware-level isolation without the weight of a full VM, and how AWS Lambda MicroVMs turns it into a managed primitive.", "url": "{{PAGES_URL}}chapters/ch12.html"},
-    {"@type": "Chapter", "position": 13, "name": "Choosing an Isolation Strategy", "description": "A decision framework for picking sandbox, container, gVisor, or microVM against your actual threat model.", "url": "{{PAGES_URL}}chapters/ch13.html"},
-    {"@type": "Chapter", "position": 14, "name": "The Proxy Pattern", "description": "Why a credential the agent never holds is a credential it can never leak.", "url": "{{PAGES_URL}}chapters/ch14.html"},
-    {"@type": "Chapter", "position": 15, "name": "Squid, Hands-On", "description": "Build a real allowlisting egress proxy: ACLs, SSL-bump TLS interception, and credential injection.", "url": "{{PAGES_URL}}chapters/ch15.html"},
-    {"@type": "Chapter", "position": 16, "name": "Filesystem Configuration", "description": "What never gets mounted, what gets mounted read-only, and how to let an agent write without trusting what it wrote.", "url": "{{PAGES_URL}}chapters/ch16.html"},
-    {"@type": "Chapter", "position": 17, "name": "Hosting the Agent SDK", "description": "The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host.", "url": "{{PAGES_URL}}chapters/ch17.html"},
-    {"@type": "Chapter", "position": 18, "name": "Deploying on Amazon ECS", "description": "A Fargate task definition with no direct internet egress, a Squid sidecar, and IAM scoped to exactly what the agent needs.", "url": "{{PAGES_URL}}chapters/ch18.html"},
-    {"@type": "Chapter", "position": 19, "name": "Deploying on AWS Lambda MicroVMs", "description": "The image-then-launch model, per-session isolation, and when it beats ECS for agent workloads.", "url": "{{PAGES_URL}}chapters/ch19.html"},
-    {"@type": "Chapter", "position": 20, "name": "Observability and Audit", "description": "What to log at the proxy, what to export over OTEL, and how to find out something went wrong before a user tells you.", "url": "{{PAGES_URL}}chapters/ch20.html"}
+    {"@type": "Chapter", "position": 1, "name": "Why Agent Security Is Different", "description": "Prompt injection, the lethal trifecta, and why an agent's behavior can't be fully predicted from its code.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch01.html"},
+    {"@type": "Chapter", "position": 2, "name": "Built-In Defenses, A Tour", "description": "What Claude Code and the Agent SDK already protect against, before you configure anything.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch02.html"},
+    {"@type": "Chapter", "position": 3, "name": "Security Principles: Boundaries, Least Privilege, Defense in Depth", "description": "The three ideas that every hardening decision in this course traces back to.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch03.html"},
+    {"@type": "Chapter", "position": 4, "name": "The Permission Evaluation Pipeline", "description": "How a single tool call moves through hooks, deny, ask, mode, allow, and canUseTool — in Claude Code and in the SDK.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch04.html"},
+    {"@type": "Chapter", "position": 5, "name": "Permission Modes Compared", "description": "default, acceptEdits, plan, auto, dontAsk, bypassPermissions — what each one actually auto-approves, and where it's safe to use them.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch05.html"},
+    {"@type": "Chapter", "position": 6, "name": "Tool-Specific Rules: Bash, Files, Web, MCP", "description": "Writing rules that hold up: wildcard semantics, path anchoring, domain matching, and the ones that look safe but aren't.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch06.html"},
+    {"@type": "Chapter", "position": 7, "name": "Hooks as a Security Control", "description": "PreToolUse hooks and canUseTool as the layer that catches what rules can't express.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch07.html"},
+    {"@type": "Chapter", "position": 8, "name": "Managed Settings & Organization Policy", "description": "Settings precedence, managed-only keys, and locking a fleet down so individual settings can't loosen it.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch08.html"},
+    {"@type": "Chapter", "position": 9, "name": "The Built-In Sandbox", "description": "bubblewrap and Seatbelt: OS-level filesystem and network isolation for the Bash tool, and where its guarantees end.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch09.html"},
+    {"@type": "Chapter", "position": 10, "name": "Hardened Containers", "description": "Building a Docker container an agent can't escape: capabilities, seccomp, read-only root, and a socket instead of a network interface.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch10.html"},
+    {"@type": "Chapter", "position": 11, "name": "gVisor", "description": "A userspace kernel between the agent and yours — what it buys you and what it costs.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch11.html"},
+    {"@type": "Chapter", "position": 12, "name": "MicroVMs and Firecracker", "description": "Hardware-level isolation without the weight of a full VM, and how AWS Lambda MicroVMs turns it into a managed primitive.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch12.html"},
+    {"@type": "Chapter", "position": 13, "name": "Choosing an Isolation Strategy", "description": "A decision framework for picking sandbox, container, gVisor, or microVM against your actual threat model.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch13.html"},
+    {"@type": "Chapter", "position": 14, "name": "The Proxy Pattern", "description": "Why a credential the agent never holds is a credential it can never leak.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch14.html"},
+    {"@type": "Chapter", "position": 15, "name": "Squid, Hands-On", "description": "Build a real allowlisting egress proxy: ACLs, SSL-bump TLS interception, and credential injection.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch15.html"},
+    {"@type": "Chapter", "position": 16, "name": "Filesystem Configuration", "description": "What never gets mounted, what gets mounted read-only, and how to let an agent write without trusting what it wrote.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch16.html"},
+    {"@type": "Chapter", "position": 17, "name": "Hosting the Agent SDK", "description": "The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch17.html"},
+    {"@type": "Chapter", "position": 18, "name": "Deploying on Amazon ECS", "description": "A Fargate task definition with no direct internet egress, a Squid sidecar, and IAM scoped to exactly what the agent needs.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch18.html"},
+    {"@type": "Chapter", "position": 19, "name": "Deploying on AWS Lambda MicroVMs", "description": "The image-then-launch model, per-session isolation, and when it beats ECS for agent workloads.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch19.html"},
+    {"@type": "Chapter", "position": 20, "name": "Observability and Audit", "description": "What to log at the proxy, what to export over OTEL, and how to find out something went wrong before a user tells you.", "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch20.html"}
   ]
 }
 </script>
@@ -70,8 +70,8 @@
     <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
 
     <div class="sidebar-links">
-      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
-      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+      <a class="codespace-link" href="https://codespaces.new/adamontherun/agent-sdk-security" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="https://github.com/adamontherun/agent-sdk-security" target="_blank" rel="noopener">GitHub repo &#8599;</a>
     </div>
 
     <nav aria-label="Chapters">
@@ -138,9 +138,9 @@
         Docker container and a real Squid egress proxy on your own machine;
         chapters 18 and 19 write complete Terraform for Amazon ECS and AWS
         Lambda MicroVMs that you validate with the real CLI tooling. Click
-        <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener"><strong>Launch Codespace</strong></a>
+        <a href="https://codespaces.new/adamontherun/agent-sdk-security" target="_blank" rel="noopener"><strong>Launch Codespace</strong></a>
         in the sidebar for a ready-to-go environment, or clone the
-        <a href="{{REPO_URL}}" target="_blank" rel="noopener">repo</a> and run
+        <a href="https://github.com/adamontherun/agent-sdk-security" target="_blank" rel="noopener">repo</a> and run
         <code>uv sync</code> locally.
       </p>
 

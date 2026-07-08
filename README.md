@@ -5,9 +5,9 @@ pipeline, OS-level sandboxing, container and microVM isolation, and a real
 Squid egress proxy you build and run, ending in production deployments on
 Amazon ECS and AWS Lambda MicroVMs.
 
-[![Read the Book](https://img.shields.io/badge/📖_Read_the_Book-{{PAGES_HOST_PATH}}-c0392b)]({{PAGES_URL}})
+[![Read the Book](https://img.shields.io/badge/📖_Read_the_Book-adamontherun.github.io/agent--sdk--security-c0392b)](https://adamontherun.github.io/agent-sdk-security/)
 
-[![{{SCREENSHOT_ALT_TEXT}}]({{SCREENSHOT_PATH}})]({{PAGES_URL}})
+[![The Agent SDK Security cover page: the course title, an intro paragraph, and a sidebar listing all five parts and twenty chapters](book/assets/screenshots/homepage.png)](https://adamontherun.github.io/agent-sdk-security/)
 
 This repo is two things: **the book** (20 chapters of prose, nothing to
 install) and **the code** (runnable examples, a Docker/Squid lab, and
@@ -25,7 +25,7 @@ from a terminal with Docker and the Python toolchain already available.
 
 ## Setup
 
-Don't want to install anything? Open [the book]({{PAGES_URL}}) and click
+Don't want to install anything? Open [the book](https://adamontherun.github.io/agent-sdk-security/) and click
 "Launch Codespace" in any chapter's sidebar — it opens a cloud dev
 environment with Docker and the Python toolchain already available.
 

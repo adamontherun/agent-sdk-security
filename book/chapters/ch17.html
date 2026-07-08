@@ -8,21 +8,21 @@
 <meta name="keywords" content="Claude Agent SDK, hosting, subprocess model, multi-tenant isolation, session patterns, scaling, CLAUDE_CONFIG_DIR, setting_sources, OpenTelemetry, ECS, Fargate, AWS Lambda MicroVMs, Terraform">
 <meta name="author" content="Adam Smith">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="{{PAGES_URL}}chapters/ch17.html">
+<link rel="canonical" href="https://adamontherun.github.io/agent-sdk-security/chapters/ch17.html">
 
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Agent SDK Security">
 <meta property="og:title" content="Ch 17 · Hosting the Agent SDK — Agent SDK Security">
 <meta property="og:description" content="The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host. Chapter 17 of Agent SDK Security, Part V · Production Deployment.">
-<meta property="og:url" content="{{PAGES_URL}}chapters/ch17.html">
-<meta property="og:image" content="{{OG_IMAGE_URL}}">
-<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
-<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+<meta property="og:url" content="https://adamontherun.github.io/agent-sdk-security/chapters/ch17.html">
+<meta property="og:image" content="https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="900">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ch 17 · Hosting the Agent SDK — Agent SDK Security">
 <meta name="twitter:description" content="The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host. Chapter 17 of Agent SDK Security, Part V · Production Deployment.">
-<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="twitter:image" content="https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png">
 <meta name="theme-color" content="#c0392b">
 <script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
 <link rel="stylesheet" href="../assets/style.css">
@@ -33,12 +33,12 @@
   "position": 17,
   "name": "Hosting the Agent SDK",
   "description": "The subprocess model, session patterns, and the concurrency math that decides how many agents fit on a host.",
-  "url": "{{PAGES_URL}}chapters/ch17.html",
-  "image": "{{OG_IMAGE_URL}}",
+  "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch17.html",
+  "image": "https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png",
   "inLanguage": "en",
-  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
-  "previousItem": "{{PAGES_URL}}chapters/ch16.html",
-  "nextItem": "{{PAGES_URL}}chapters/ch18.html"
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "https://adamontherun.github.io/agent-sdk-security/"},
+  "previousItem": "https://adamontherun.github.io/agent-sdk-security/chapters/ch16.html",
+  "nextItem": "https://adamontherun.github.io/agent-sdk-security/chapters/ch18.html"
 }
 </script>
 </head>
@@ -50,8 +50,8 @@
     <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
 
     <div class="sidebar-links">
-      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
-      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+      <a class="codespace-link" href="https://codespaces.new/adamontherun/agent-sdk-security" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="https://github.com/adamontherun/agent-sdk-security" target="_blank" rel="noopener">GitHub repo &#8599;</a>
     </div>
 
     <nav aria-label="Chapters">
@@ -330,7 +330,7 @@ async for message in query(
       <div class="tryit">
         <h3>⚡ Try it</h3>
         <p class="tryit-env">
-          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the example is plain Python, no Claude session or network needed.
+          No local setup? <a href="https://codespaces.new/adamontherun/agent-sdk-security" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the example is plain Python, no Claude session or network needed.
         </p>
         <p>
           Run the host planner to see the scaling formula turn RAM into a session

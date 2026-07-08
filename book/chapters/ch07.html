@@ -8,21 +8,21 @@
 <meta name="keywords" content="Claude Agent SDK, Claude Code, PreToolUse hooks, hook exit codes, permissionDecision, hookSpecificOutput, security hook, URL allowlist, stdin stdout JSON, defense in depth">
 <meta name="author" content="Adam Smith">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="{{PAGES_URL}}chapters/ch07.html">
+<link rel="canonical" href="https://adamontherun.github.io/agent-sdk-security/chapters/ch07.html">
 
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Agent SDK Security">
 <meta property="og:title" content="Ch 7 · Hooks as a Security Control — Agent SDK Security">
 <meta property="og:description" content="PreToolUse hooks run before permission rules: the stdin/stdout JSON contract, exit codes, and a real URL-allowlist hook you can test without a live model.">
-<meta property="og:url" content="{{PAGES_URL}}chapters/ch07.html">
-<meta property="og:image" content="{{OG_IMAGE_URL}}">
-<meta property="og:image:width" content="{{OG_IMAGE_WIDTH}}">
-<meta property="og:image:height" content="{{OG_IMAGE_HEIGHT}}">
+<meta property="og:url" content="https://adamontherun.github.io/agent-sdk-security/chapters/ch07.html">
+<meta property="og:image" content="https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="900">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ch 7 · Hooks as a Security Control — Agent SDK Security">
 <meta name="twitter:description" content="PreToolUse hooks run before permission rules: the stdin/stdout JSON contract, exit codes, and a real URL-allowlist hook you can test without a live model.">
-<meta name="twitter:image" content="{{OG_IMAGE_URL}}">
+<meta name="twitter:image" content="https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png">
 <meta name="theme-color" content="#c0392b">
 <script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
 <link rel="stylesheet" href="../assets/style.css">
@@ -33,12 +33,12 @@
   "position": 7,
   "name": "Hooks as a Security Control",
   "description": "PreToolUse hooks and canUseTool as the layer that catches what rules can't express.",
-  "url": "{{PAGES_URL}}chapters/ch07.html",
-  "image": "{{OG_IMAGE_URL}}",
+  "url": "https://adamontherun.github.io/agent-sdk-security/chapters/ch07.html",
+  "image": "https://adamontherun.github.io/agent-sdk-security/assets/screenshots/homepage.png",
   "inLanguage": "en",
-  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "{{PAGES_URL}}"},
-  "previousItem": "{{PAGES_URL}}chapters/ch06.html",
-  "nextItem": "{{PAGES_URL}}chapters/ch08.html"
+  "isPartOf": {"@type": "Course", "name": "Agent SDK Security", "url": "https://adamontherun.github.io/agent-sdk-security/"},
+  "previousItem": "https://adamontherun.github.io/agent-sdk-security/chapters/ch06.html",
+  "nextItem": "https://adamontherun.github.io/agent-sdk-security/chapters/ch08.html"
 }
 </script>
 </head>
@@ -50,8 +50,8 @@
     <p class="tagline">Permissions, sandboxing, and network isolation for production Claude deployments</p>
 
     <div class="sidebar-links">
-      <a class="codespace-link" href="{{CODESPACES_URL}}" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
-      <a class="repo-link" href="{{REPO_URL}}" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+      <a class="codespace-link" href="https://codespaces.new/adamontherun/agent-sdk-security" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="https://github.com/adamontherun/agent-sdk-security" target="_blank" rel="noopener">GitHub repo &#8599;</a>
     </div>
 
     <nav aria-label="Chapters">
@@ -354,7 +354,7 @@ options = ClaudeAgentOptions(
       <div class="tryit">
         <h3>⚡ Try it</h3>
         <p class="tryit-env">
-          No local setup? <a href="{{CODESPACES_URL}}" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — {{WHAT_S_ALREADY_RUNNING}}.
+          No local setup? <a href="https://codespaces.new/adamontherun/agent-sdk-security" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — the Python toolchain, Docker, the AWS CLI, and Terraform are already installed.
         </p>
         <p>
           Pipe your own tool-call JSON into
