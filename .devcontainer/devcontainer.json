@@ -1,0 +1,51 @@
+{
+  "name": "Agent SDK Security",
+
+  // Image-based, not compose-attached: the reader is the operator here, not an
+  // app container inside compose.yaml. They run `docker compose up` for the
+  // Squid lab (ch15) and `docker run` for the hardened-container proofs (ch10)
+  // themselves, and drive terraform / the AWS CLI for ch18-19. So the
+  // devcontainer ships Python plus Docker-in-Docker, the AWS CLI, and
+  // Terraform, rather than joining the compose network.
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {},
+    "ghcr.io/va-h/devcontainers-features/uv:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/aws-cli:1": {},
+    "ghcr.io/devcontainers/features/terraform:1": {}
+  },
+
+  "postCreateCommand": "uv sync",
+
+  // The Squid proxy from compose.yaml (ch15 lab). Silent: the reader starts the
+  // lab deliberately, it is not something to auto-open on Codespace launch.
+  "forwardPorts": [3128],
+  "portsAttributes": {
+    "3128": { "label": "Squid egress proxy (ch15 lab)", "onAutoForward": "silent" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "hashicorp.terraform"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": ".venv/bin/python",
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.codeActionsOnSave": { "source.organizeImports": "explicit" }
+        },
+        "[terraform]": {
+          "editor.defaultFormatter": "hashicorp.terraform"
+        }
+      }
+    }
+  }
+}

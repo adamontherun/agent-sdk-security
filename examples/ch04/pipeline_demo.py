@@ -28,7 +28,7 @@ CASES = [
 
 def main() -> None:
     for label, overrides in CASES:
-        call = {
+        call: dict[str, object] = {
             "hook_decision": None,
             "deny_match": False,
             "ask_match": False,

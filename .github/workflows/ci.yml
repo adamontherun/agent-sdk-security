@@ -1,0 +1,72 @@
+# Lints, format-checks, type-checks, and runs the challenge suite in both
+# directions (skeletons must fail, solutions must pass) on every push/PR. The
+# challenge tests are pure Python — the Docker/Squid lab and the AWS chapters
+# are hands-on infra, not part of the test suite — so there is no services:
+# block here. The devcontainer-smoke-test job builds the real
+# .devcontainer/devcontainer.json so a Codespaces-specific regression is caught
+# automatically.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Type-check (mypy)
+        run: uv run mypy solutions examples
+
+      # A challenge suite whose tests pass against the untouched skeleton isn't
+      # testing anything, so CI asserts BOTH directions.
+      - name: Skeletons must still fail (they're unfinished by design)
+        run: |
+          if uv run pytest challenges/ -q; then
+            echo "::error::challenges passed against the untouched skeletons — a challenge test isn't testing anything"
+            exit 1
+          fi
+
+      - name: Reference solutions must pass every challenge test
+        run: COURSE_SOLUTIONS=1 uv run pytest challenges/ -q
+
+  # Builds the REAL .devcontainer/devcontainer.json (Python + uv + docker-in-
+  # docker + aws-cli + terraform) and runs a pure-Python example plus the
+  # solution suite inside it, so a bad feature version or a broken
+  # postCreateCommand fails here rather than in a reader's Codespace.
+  devcontainer-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the devcontainer and run a real example inside it
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository }}-devcontainer
+          push: never
+          runCmd: |
+            set -e
+            uv sync
+            uv run python examples/ch01/trifecta_scan.py
+            COURSE_SOLUTIONS=1 uv run pytest challenges/ -q
